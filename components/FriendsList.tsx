@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import Link from "next/link";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { UserDisplay } from "@/components/UserDisplay";
+import { ReportUserButton } from "@/components/ReportUserButton";
 
-type Friend = { id: string; display_name: string };
+type Friend = { id: string; display_name: string; avatar_url: string | null; bio: string | null };
 
-type Props = { initialList: Friend[] };
+type Props = { initialList: Friend[]; myUserId: string };
 
-export function FriendsList({ initialList }: Props) {
+export function FriendsList({ initialList, myUserId }: Props) {
   const router = useRouter();
   const [list, setList] = useState<Friend[]>(initialList);
   const [search, setSearch] = useState("");
@@ -15,6 +18,26 @@ export function FriendsList({ initialList }: Props) {
   const [searching, setSearching] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [myReportIdsByUser, setMyReportIdsByUser] = useState<Map<string, string>>(new Map());
+
+  const fetchMyReports = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reports/mine");
+      const data = await res.json();
+      if (!res.ok || !data.reports) return;
+      const map = new Map<string, string>();
+      (data.reports as { id: string; reported_user_id: string | null }[]).forEach((r) => {
+        if (r.reported_user_id) map.set(r.reported_user_id, r.id);
+      });
+      setMyReportIdsByUser(map);
+    } catch {
+      setMyReportIdsByUser(new Map());
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMyReports();
+  }, [fetchMyReports]);
 
   const doSearch = useCallback(async () => {
     const q = search.trim();
@@ -93,15 +116,25 @@ export function FriendsList({ initialList }: Props) {
           <ul className="mt-2 space-y-2">
             {results.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-2">
-                <span className="font-bold text-gray-900">{u.display_name}</span>
-                <button
-                  type="button"
-                  onClick={() => addFriend(u.id)}
-                  disabled={!!addingId}
-                  className="btn-primary py-1 text-sm disabled:opacity-50"
-                >
-                  {addingId === u.id ? "追加中..." : "追加"}
-                </button>
+                <UserDisplay displayName={u.display_name} avatarUrl={u.avatar_url} bio={u.bio} size="sm" />
+                <div className="flex shrink-0 items-center gap-1">
+                  {u.id !== myUserId && (
+                    <ReportUserButton
+                      reportedUserId={u.id}
+                      reportedDisplayName={u.display_name}
+                      reportIdFromServer={myReportIdsByUser.get(u.id)}
+                      onReportsChange={fetchMyReports}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => addFriend(u.id)}
+                    disabled={!!addingId}
+                    className="btn-primary py-1 text-sm disabled:opacity-50"
+                  >
+                    {addingId === u.id ? "追加中..." : "追加"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -116,12 +149,14 @@ export function FriendsList({ initialList }: Props) {
           <ul className="mt-2 space-y-2">
             {list.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-2 rounded-button border border-live-100 bg-surface-card px-3 py-2">
-                <span className="font-bold text-gray-900">{u.display_name}</span>
+                <Link href={`/friends/${u.id}`} className="min-w-0 flex-1">
+                  <UserDisplay displayName={u.display_name} avatarUrl={u.avatar_url} bio={u.bio} size="sm" />
+                </Link>
                 <button
                   type="button"
                   onClick={() => removeFriend(u.id)}
                   disabled={!!removingId}
-                  className="text-sm font-bold text-red-600 hover:underline disabled:opacity-50"
+                  className="shrink-0 text-sm font-bold text-red-600 hover:underline disabled:opacity-50"
                 >
                   {removingId === u.id ? "解除中..." : "解除"}
                 </button>
@@ -133,3 +168,4 @@ export function FriendsList({ initialList }: Props) {
     </div>
   );
 }
+

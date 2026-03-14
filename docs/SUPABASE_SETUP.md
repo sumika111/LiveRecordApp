@@ -79,6 +79,15 @@
 **友達・タイムライン・いいねを使う場合:**  
 `docs/migration_follows_likes.sql` を SQL Editor で実行し、`follows` と `likes` テーブルと RLS を作成する。
 
+**プロフィールの「一言」を使う場合:**  
+`docs/migration_profiles_bio.sql` を SQL Editor で実行し、`profiles` に `bio` カラムを追加する。
+
+**プロフィールの「好きなアーティスト」を使う場合:**  
+`docs/migration_profiles_favorite_artists.sql` を SQL Editor で実行し、`profiles` に `favorite_artists` カラムを追加する。
+
+**設定でアイコンを写真から選ぶ場合:**  
+1. `docs/STORAGE_AVATARS.md` の手順で Storage バケット `avatars` を作成し、RLS を設定する。
+
 以下は個別に実行する場合の参考です。
 
 ### profiles（auth.users と 1:1）

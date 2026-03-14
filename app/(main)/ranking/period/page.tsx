@@ -2,10 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
-import { getRankings, getRankingsByPeriod, getVenueVisitCountRanking, getUsersByVenueAndPeriod, getVenueDisplayLabel, getArtistRankingByYear, getUsersByArtistAndYear } from "@/lib/ranking";
+import { getRankings, getRankingsByPeriod, getVenueVisitCountRanking, getUsersByVenueAndPeriod, getVenueDisplayLabel, getArtistRankingByYear, getUsersByArtistAndYear, getArtistRankingAllTime, getUsersByArtistAllTime } from "@/lib/ranking";
 import { ArtistSearchYear } from "@/components/ArtistSearchYear";
+import { ArtistSearchAll } from "@/components/ArtistSearchAll";
 import { VenueRankingSearch } from "@/components/VenueRankingSearch";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { ScrollToHash } from "@/components/ScrollToHash";
 
 function RankingTable({
   title,
@@ -105,9 +107,12 @@ export default async function RankingPeriodPage({ searchParams }: Params) {
     ? await getUsersByVenueAndPeriod(supabase, venueId, isYear ? year : undefined)
     : [];
 
-  /** 年別のときだけ「行った回数が多いアーティスト」トップ20（クリックでそのアーティストのユーザーランキング表示） */
+  /** 全体のとき「行った回数が多いアーティスト」トップ20 */
+  const artistRankingAll = isAll ? await getArtistRankingAllTime(supabase) : [];
+  /** 年別のとき「行った回数が多いアーティスト」トップ20 */
   const artistRanking = isYear ? await getArtistRankingByYear(supabase, year) : [];
-  /** アーティストを選んだとき「そのアーティストに何回行ったか」ユーザー別ランキング */
+  /** アーティストを選んだとき「そのアーティストに何回行ったか」ユーザー別ランキング（全体 or 年別） */
+  const usersByArtistAll = isAll && selectedArtist ? await getUsersByArtistAllTime(supabase, selectedArtist) : [];
   const usersByArtist =
     isYear && selectedArtist ? await getUsersByArtistAndYear(supabase, selectedArtist, year) : [];
 
@@ -118,6 +123,7 @@ export default async function RankingPeriodPage({ searchParams }: Params) {
 
   return (
     <>
+      <ScrollToHash />
       <h1 className="text-xl font-bold tracking-tight text-live-900">
         ランキング（全体・月別・年別）
       </h1>
@@ -222,37 +228,75 @@ export default async function RankingPeriodPage({ searchParams }: Params) {
         </CollapsibleSection>
       </div>
 
-      {(isAll || isYear) && (
-        <CollapsibleSection title="会場別（みんなが何回行ったか）" className="mt-8">
-          <p className="mt-0.5 text-sm text-gray-500">
-            {isAll ? "延べ公演数の多い会場（全体・最大20件）。" : `${year}年の延べ公演数の多い会場（最大20件）。`}
-            会場名で検索するか一覧から選ぶと、その会場に何回行ったかのユーザーランキングが表示されます。
+      {isAll && (
+        <CollapsibleSection id="artist-ranking" title="「アーティスト」でユーザーランキングを見る（全体）" className="mt-8">
+          <p className="mt-0.5 text-sm text-gray-600">
+            アーティスト名で検索するか、下の一覧から選ぶと、そのアーティストに何回行ったかのユーザー別ランキングが表示されます。
           </p>
-          <div className="mt-3">
-            <VenueRankingSearch
-              initialVenues={venueVisitRanking}
-              currentVenueId={venueId ?? null}
-              basePath="/ranking/period"
-              queryString={isAll ? "type=all" : `type=year&year=${year}`}
-              periodLabel={periodLabel}
-            />
+          <div id="artist-search" className="mt-4 scroll-mt-4">
+            <ArtistSearchAll selectedArtist={selectedArtist} basePath="/ranking/period" queryString="type=all" />
           </div>
-          {venueId && selectedVenueLabel && (
-            <div className="mt-6 rounded-card border-2 border-live-200 bg-live-50/30 p-4">
+          {artistRankingAll.length > 0 && (
+            <>
+              <p className="mt-6 text-sm text-gray-600">または 行った回数が多い順の一覧から選択:</p>
+              <ol className="mt-2 space-y-2">
+                {artistRankingAll.map((e) => {
+                  const href = `/ranking/period?type=all&artist=${encodeURIComponent(e.artistName)}#artist-detail`;
+                  const isSelected = selectedArtist === e.artistName;
+                  return (
+                    <li key={`${e.rank}-${e.artistName}`}>
+                      <Link
+                        href={href}
+                        className={`flex items-center justify-between gap-3 rounded-button border px-4 py-2 transition-colors ${
+                          isSelected
+                            ? "border-live-500 bg-live-100 text-live-900"
+                            : "border-live-100 bg-surface-muted/50 hover:bg-live-50/50"
+                        }`}
+                      >
+                        <span className="flex min-w-0 flex-1 items-center gap-3">
+                          <span
+                            className={
+                              e.rank <= 3
+                                ? "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-live-100 text-sm font-bold text-live-800"
+                                : "text-sm font-medium text-gray-500 shrink-0"
+                            }
+                          >
+                            {e.rank}
+                          </span>
+                          <span className="truncate font-bold text-gray-900">{e.artistName}</span>
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-live-600 whitespace-nowrap">
+                          {e.count}
+                          <span className="ml-0.5 text-gray-500">回（合計）</span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          )}
+          {selectedArtist && (
+            <div id="artist-detail" className="mt-6 rounded-card border-2 border-live-200 bg-live-50/30 p-4 scroll-mt-4">
               <h3 className="text-base font-bold text-live-900">
-                「{selectedVenueLabel}」に何回行ったか ユーザーランキング（{periodLabel}）
+                「{selectedArtist}」に何回行ったか ユーザーランキング（全体）
               </h3>
-              <Link
-                href={isAll ? "/ranking/period?type=all" : `/ranking/period?type=year&year=${year}`}
-                className="mt-1 inline-block text-sm font-bold text-live-600 hover:underline"
-              >
-                ← 別の会場を選ぶ
-              </Link>
-              {usersByVenue.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-500">この会場のデータはありません。</p>
+              <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <Link href="/ranking/period?type=all#artist-search" className="font-bold text-live-600 hover:underline">
+                  別のアーティストを選ぶ
+                </Link>
+                <Link
+                  href={`/ranking/period?type=year&year=${currentYear}&artist=${encodeURIComponent(selectedArtist)}#artist-detail`}
+                  className="font-bold text-live-600 hover:underline"
+                >
+                  {selectedArtist}の年別ランキングを見る
+                </Link>
+              </p>
+              {usersByArtistAll.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-500">データはありません。</p>
               ) : (
                 <ol className="mt-4 space-y-2">
-                  {usersByVenue.map((e) => (
+                  {usersByArtistAll.map((e) => (
                     <li
                       key={`${e.rank}-${e.displayName}`}
                       className="flex items-center justify-between rounded-button border border-live-100 bg-white px-4 py-2"
@@ -283,46 +327,49 @@ export default async function RankingPeriodPage({ searchParams }: Params) {
       )}
 
       {isYear && (
-        <CollapsibleSection title={`${year}年「アーティスト」でユーザーランキングを見る`} className="mt-8">
+        <CollapsibleSection id="artist-ranking" title={`${year}年「アーティスト」でユーザーランキングを見る`} className="mt-8">
           <p className="mt-0.5 text-sm text-gray-600">
             アーティスト名で検索するか、下の一覧から選ぶと、そのアーティストに何回行ったかのユーザー別ランキングが表示されます。
           </p>
-
-          <div className="mt-4">
+          <p className="mt-1 text-xs text-live-600">
+            <Link href="/ranking/period?type=all#artist-ranking" className="font-bold hover:underline">
+              全体のアーティストランキングを見る
+            </Link>
+          </p>
+          <div id="artist-search" className="mt-4 scroll-mt-4">
             <p className="mb-2 text-sm font-bold text-gray-700">アーティスト名で検索</p>
             <ArtistSearchYear year={year} selectedArtist={selectedArtist} />
           </div>
-
           {artistRanking.length > 0 && (
             <>
               <p className="mt-6 text-sm text-gray-600">または 行った回数が多い順の一覧から選択:</p>
               <ol className="mt-2 space-y-2">
             {artistRanking.map((e) => {
-              const href = `/ranking/period?type=year&year=${year}&artist=${encodeURIComponent(e.artistName)}`;
+              const href = `/ranking/period?type=year&year=${year}&artist=${encodeURIComponent(e.artistName)}#artist-detail`;
               const isSelected = selectedArtist === e.artistName;
               return (
                 <li key={`${e.rank}-${e.artistName}`}>
                   <Link
                     href={href}
-                    className={`flex items-center justify-between rounded-button border px-4 py-2 transition-colors ${
+                    className={`flex items-center justify-between gap-3 rounded-button border px-4 py-2 transition-colors ${
                       isSelected
                         ? "border-live-500 bg-live-100 text-live-900"
                         : "border-live-100 bg-surface-muted/50 hover:bg-live-50/50"
                     }`}
                   >
-                    <span className="flex items-center gap-3">
+                    <span className="flex min-w-0 flex-1 items-center gap-3">
                       <span
                         className={
                           e.rank <= 3
                             ? "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-live-100 text-sm font-bold text-live-800"
-                            : "text-sm font-medium text-gray-500"
+                            : "text-sm font-medium text-gray-500 shrink-0"
                         }
                       >
                         {e.rank}
                       </span>
-                      <span className="font-bold text-gray-900">{e.artistName}</span>
+                      <span className="truncate font-bold text-gray-900">{e.artistName}</span>
                     </span>
-                    <span className="text-sm font-bold text-live-600">
+                    <span className="shrink-0 text-sm font-bold text-live-600 whitespace-nowrap">
                       {e.count}
                       <span className="ml-0.5 text-gray-500">回（合計）</span>
                     </span>
@@ -335,21 +382,86 @@ export default async function RankingPeriodPage({ searchParams }: Params) {
           )}
 
           {selectedArtist && (
-            <div className="mt-6 rounded-card border-2 border-live-200 bg-live-50/30 p-4">
+            <div id="artist-detail" className="mt-6 rounded-card border-2 border-live-200 bg-live-50/30 p-4 scroll-mt-4">
               <h3 className="text-base font-bold text-live-900">
                 「{selectedArtist}」に何回行ったか ユーザーランキング（{year}年）
               </h3>
-              <Link
-                href={`/ranking/period?type=year&year=${year}`}
-                className="mt-1 inline-block text-sm font-bold text-live-600 hover:underline"
-              >
-                ← 別のアーティストを選ぶ
-              </Link>
+              <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <Link href={`/ranking/period?type=year&year=${year}#artist-search`} className="font-bold text-live-600 hover:underline">
+                  別のアーティストを選ぶ
+                </Link>
+                <Link
+                  href={`/ranking/period?type=all&artist=${encodeURIComponent(selectedArtist)}#artist-detail`}
+                  className="font-bold text-live-600 hover:underline"
+                >
+                  {selectedArtist}の全体ランキングを見る
+                </Link>
+              </p>
               {usersByArtist.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-500">この年のデータはありません。</p>
               ) : (
                 <ol className="mt-4 space-y-2">
                   {usersByArtist.map((e) => (
+                    <li
+                      key={`${e.rank}-${e.displayName}`}
+                      className="flex items-center justify-between rounded-button border border-live-100 bg-white px-4 py-2"
+                    >
+                      <span className="flex items-center gap-3">
+                        <span
+                          className={
+                            e.rank <= 3
+                              ? "flex h-7 w-7 items-center justify-center rounded-full bg-live-100 text-sm font-bold text-live-800"
+                              : "text-sm font-medium text-gray-500"
+                          }
+                        >
+                          {e.rank}
+                        </span>
+                        <span className="font-bold text-gray-900">{e.displayName}</span>
+                      </span>
+                      <span className="text-sm font-bold text-live-600">
+                        {e.count}
+                        <span className="ml-0.5 text-gray-500">回</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
+      {(isAll || isYear) && (
+        <CollapsibleSection id="venue-ranking" title="会場別（みんなが何回行ったか）" className="mt-8">
+          <p className="mt-0.5 text-sm text-gray-500">
+            {isAll ? "延べ公演数の多い会場（全体・最大20件）。" : `${year}年の延べ公演数の多い会場（最大20件）。`}
+            会場名で検索するか一覧から選ぶと、その会場に何回行ったかのユーザーランキングが表示されます。
+          </p>
+          <div id="venue-search" className="mt-3 scroll-mt-4">
+            <VenueRankingSearch
+              initialVenues={venueVisitRanking}
+              currentVenueId={venueId ?? null}
+              basePath="/ranking/period"
+              queryString={isAll ? "type=all" : `type=year&year=${year}`}
+              periodLabel={periodLabel}
+            />
+          </div>
+          {venueId && selectedVenueLabel && (
+            <div id="venue-detail" className="mt-6 rounded-card border-2 border-live-200 bg-live-50/30 p-4 scroll-mt-4">
+              <h3 className="text-base font-bold text-live-900">
+                「{selectedVenueLabel}」に何回行ったか ユーザーランキング（{periodLabel}）
+              </h3>
+              <Link
+                href={isAll ? "/ranking/period?type=all#venue-search" : `/ranking/period?type=year&year=${year}#venue-search`}
+                className="mt-1 inline-block text-sm font-bold text-live-600 hover:underline"
+              >
+                別の会場を選ぶ
+              </Link>
+              {usersByVenue.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-500">この会場のデータはありません。</p>
+              ) : (
+                <ol className="mt-4 space-y-2">
+                  {usersByVenue.map((e) => (
                     <li
                       key={`${e.rank}-${e.displayName}`}
                       className="flex items-center justify-between rounded-button border border-live-100 bg-white px-4 py-2"

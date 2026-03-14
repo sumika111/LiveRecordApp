@@ -7,13 +7,14 @@ type Props = {
   children: React.ReactNode;
   defaultOpen?: boolean;
   className?: string;
+  id?: string;
 };
 
-export function CollapsibleSection({ title, children, defaultOpen = true, className }: Props) {
+export function CollapsibleSection({ title, children, defaultOpen = true, className, id }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section className={`card rounded-card border-live-100 overflow-hidden ${className ?? ""}`}>
+    <section id={id} className={`card rounded-card border-live-100 overflow-hidden scroll-mt-4 ${className ?? ""}`}>
       <button
         type="button"
         onClick={() => setOpen(!open)}

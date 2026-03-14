@@ -2,7 +2,7 @@
 
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "ok"; text: string } | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isBanned = searchParams.get("banned") === "1";
 
   if (!isSupabaseConfigured()) {
     return (
@@ -92,6 +94,22 @@ export default function LoginPage() {
           </motion.p>
         </div>
 
+        <motion.section
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.22 }}
+          className="rounded-card border border-live-200 bg-white/80 p-4 text-left text-sm text-gray-700"
+        >
+          <p className="font-bold text-gray-900">ご利用にあたって</p>
+          <ul className="mt-2 list-inside list-disc space-y-1">
+            <li>他人を傷つけるような発言はしないでください。</li>
+            <li>常識の範囲内でご利用ください。</li>
+          </ul>
+          <p className="mt-3 text-xs text-gray-600">
+            これらが守れない場合、通報が多くなったときは管理者がアカウントを削除することがあります。一度削除されたメールアドレスでは、再度アカウントを作成することはできません。
+          </p>
+        </motion.section>
+
         <motion.form
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -124,6 +142,15 @@ export default function LoginPage() {
               required
             />
           </div>
+          {isBanned && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm text-red-600"
+            >
+              このメールアドレスは利用できません。アカウントが削除されているため、再登録はできません。
+            </motion.p>
+          )}
           {message && (
             <motion.p
               initial={{ opacity: 0 }}

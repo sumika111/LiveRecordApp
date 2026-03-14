@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
+import { toPublicDisplayName } from "@/lib/displayName";
 import { FriendsList } from "@/components/FriendsList";
 import { InviteLinkBlock } from "@/components/InviteLinkBlock";
 
@@ -16,17 +17,20 @@ export default async function FriendsPage() {
     .eq("follower_id", user.id);
   const followingIds = (followRows ?? []).map((r: { following_id: string }) => r.following_id);
 
-  let list: Array<{ id: string; display_name: string }> = [];
+  let list: Array<{ id: string; display_name: string; avatar_url: string | null; bio: string | null }> = [];
   if (followingIds.length > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, display_name")
+      .select("id, display_name, avatar_url, bio")
       .in("id", followingIds);
-    list = (profiles ?? []).map((p: { id: string; display_name: string | null }) => ({
-      id: p.id,
-      display_name:
-        p.display_name?.trim() && !p.display_name.includes("@") ? p.display_name.trim() : "匿名",
-    }));
+    list = (profiles ?? []).map(
+      (p: { id: string; display_name: string | null; avatar_url: string | null; bio: string | null }) => ({
+        id: p.id,
+        display_name: toPublicDisplayName(p.display_name),
+        avatar_url: p.avatar_url ?? null,
+        bio: p.bio ?? null,
+      })
+    );
   }
 
   return (
@@ -40,7 +44,7 @@ export default async function FriendsPage() {
 
       <section>
         <h2 className="text-lg font-bold text-live-900">友達を検索して追加</h2>
-        <FriendsList initialList={list} />
+        <FriendsList initialList={list} myUserId={user.id} />
       </section>
 
       <div className="flex flex-wrap gap-3 pt-4">

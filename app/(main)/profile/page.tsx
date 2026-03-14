@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
-import { NicknameForm } from "@/components/NicknameForm";
+import { ProfileForm } from "@/components/ProfileForm";
 import { getUserStats, getEarnedBadges } from "@/lib/getUserStats";
 
 export default async function ProfilePage() {
@@ -11,11 +11,11 @@ export default async function ProfilePage() {
 
   const supabase = await createClient();
   const [profileRes, stats] = await Promise.all([
-    supabase.from("profiles").select("display_name").eq("id", user.id).single(),
+    supabase.from("profiles").select("display_name, avatar_url, bio, favorite_artists").eq("id", user.id).single(),
     getUserStats(supabase, user.id),
   ]);
 
-  const displayName = profileRes.data?.display_name ?? null;
+  const profile = profileRes.data;
   const badges = getEarnedBadges(stats);
 
   return (
@@ -72,13 +72,21 @@ export default async function ProfilePage() {
         </Link>
       </div>
 
-      {/* ニックネーム */}
+      {/* プロフィール（ニックネーム・アイコン・一言） */}
       <section className="mt-8">
-        <h2 className="text-sm font-bold text-gray-700">ニックネーム設定</h2>
+        <h2 className="text-sm font-bold text-gray-700">プロフィール</h2>
         <p className="mt-1 text-sm text-gray-600">
-          ランキングに表示する名前を設定できます。未設定の場合は「匿名」と表示されます。
+          ニックネーム・アイコン・一言はランキングやタイムラインで表示されます。
         </p>
-        <NicknameForm userId={user.id} initialDisplayName={displayName} />
+        <ProfileForm
+          userId={user.id}
+          initial={{
+            display_name: profile?.display_name ?? null,
+            avatar_url: profile?.avatar_url ?? null,
+            bio: profile?.bio ?? null,
+            favorite_artists: profile?.favorite_artists ?? null,
+          }}
+        />
       </section>
 
       <Link

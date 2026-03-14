@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { toPublicDisplayName } from "@/lib/displayName";
 
 type AttendanceRow = {
   user_id: string;
@@ -32,12 +33,8 @@ export async function getRankings(supabase: SupabaseClient) {
   const attendances = (attendanceRows ?? []) as unknown as AttendanceRow[];
   const profiles = (profileRows ?? []) as unknown as ProfileRow[];
 
-  /** メールアドレスや未設定は「匿名」にして個人情報を出さない */
-  function toDisplayName(raw: string | null): string {
-    if (!raw || raw.trim() === "" || raw.includes("@")) return "匿名";
-    return raw.trim();
-  }
-  const profileMap = new Map(profiles.map((p) => [p.id, toDisplayName(p.display_name)]));
+  const { toPublicDisplayName } = await import("@/lib/displayName");
+  const profileMap = new Map(profiles.map((p) => [p.id, toPublicDisplayName(p.display_name)]));
 
   type Agg = {
     events: number;
@@ -133,11 +130,7 @@ export async function getRankingsByPeriod(
     .from("profiles")
     .select("id, display_name");
   const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  function toDisplayName(raw: string | null): string {
-    if (!raw || raw.trim() === "" || raw.includes("@")) return "匿名";
-    return raw.trim();
-  }
-  const profileMap = new Map(profiles.map((p) => [p.id, toDisplayName(p.display_name)]));
+  const profileMap = new Map(profiles.map((p) => [p.id, toPublicDisplayName(p.display_name)]));
 
   type Agg = { events: number; venueIds: Set<string>; prefectures: Set<string> };
   const byUser = new Map<string, Agg>();
@@ -265,11 +258,7 @@ export async function getUsersByVenueAndPeriod(
 
   const { data: profileRows } = await supabase.from("profiles").select("id, display_name");
   const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  function toDisplayName(raw: string | null): string {
-    if (!raw || raw.trim() === "" || raw.includes("@")) return "匿名";
-    return raw.trim();
-  }
-  const profileMap = new Map(profiles.map((p) => [p.id, toDisplayName(p.display_name)]));
+  const profileMap = new Map(profiles.map((p) => [p.id, toPublicDisplayName(p.display_name)]));
 
   const topN = 20;
   return Array.from(byUser.entries())
@@ -354,6 +343,45 @@ export type ArtistRankingEntry = {
   count: number;
 };
 
+/** 全体で「みんながそのアーティストのライブに何回行ったか」トップ20 */
+export async function getArtistRankingAllTime(
+  supabase: SupabaseClient
+): Promise<ArtistRankingEntry[]> {
+  const { data: rows } = await supabase
+    .from("attendances")
+    .select("event_id, events(artist_name, event_artists(artist_name))");
+
+  type Row = {
+    event_id: string;
+    events: {
+      artist_name: string | null;
+      event_artists: Array<{ artist_name: string }> | null;
+    } | null;
+  };
+  const list = (rows ?? []) as unknown as Row[];
+  const byArtist = new Map<string, number>();
+  for (const row of list) {
+    const e = row.events;
+    if (!e) continue;
+    const names: string[] =
+      e.event_artists && e.event_artists.length > 0
+        ? e.event_artists.map((a) => a.artist_name?.trim()).filter((s): s is string => Boolean(s))
+        : e.artist_name?.trim()
+          ? [e.artist_name.trim()]
+          : [];
+    names.forEach((label) => {
+      byArtist.set(label, (byArtist.get(label) ?? 0) + 1);
+    });
+  }
+
+  const topN = 20;
+  return Array.from(byArtist.entries())
+    .map(([artistName, count]) => ({ artistName, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, topN)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
+}
+
 /** 年別で「みんながそのアーティストのライブに何回行ったか」トップ20（負荷対策で20件のみ） */
 export async function getArtistRankingByYear(
   supabase: SupabaseClient,
@@ -403,6 +431,50 @@ export async function getArtistRankingByYear(
     .map((e, i) => ({ ...e, rank: i + 1 }));
 }
 
+/** 指定アーティストについて「そのアーティストに何回行ったか」ユーザー別ランキング・全体（トップ20） */
+export async function getUsersByArtistAllTime(
+  supabase: SupabaseClient,
+  artistName: string
+): Promise<RankingEntry[]> {
+  const { data: rows } = await supabase
+    .from("attendances")
+    .select("user_id, event_id, events(artist_name, event_artists(artist_name))");
+
+  type Row = {
+    user_id: string;
+    event_id: string;
+    events: {
+      artist_name: string | null;
+      event_artists: Array<{ artist_name: string }> | null;
+    } | null;
+  };
+  const list = (rows ?? []) as unknown as Row[];
+  const byUser = new Map<string, number>();
+  for (const row of list) {
+    const e = row.events;
+    if (!e) continue;
+    const names: string[] =
+      e.event_artists && e.event_artists.length > 0
+        ? e.event_artists.map((a) => a.artist_name?.trim()).filter((s): s is string => Boolean(s))
+        : e.artist_name?.trim()
+          ? [e.artist_name.trim()]
+          : [];
+    if (!names.includes(artistName)) continue;
+    byUser.set(row.user_id, (byUser.get(row.user_id) ?? 0) + 1);
+  }
+
+  const { data: profileRows } = await supabase.from("profiles").select("id, display_name");
+  const profiles = (profileRows ?? []) as unknown as ProfileRow[];
+  const profileMap = new Map(profiles.map((p) => [p.id, toPublicDisplayName(p.display_name)]));
+
+  const topN = 20;
+  return Array.from(byUser.entries())
+    .map(([userId, count]) => ({ userId, displayName: profileMap.get(userId) ?? "匿名", count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, topN)
+    .map((e, i) => ({ ...e, rank: i + 1 })) as RankingEntry[];
+}
+
 /** 指定年の指定アーティストについて「そのアーティストに何回行ったか」ユーザー別ランキング（トップ20） */
 export async function getUsersByArtistAndYear(
   supabase: SupabaseClient,
@@ -444,11 +516,7 @@ export async function getUsersByArtistAndYear(
 
   const { data: profileRows } = await supabase.from("profiles").select("id, display_name");
   const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  function toDisplayName(raw: string | null): string {
-    if (!raw || raw.trim() === "" || raw.includes("@")) return "匿名";
-    return raw.trim();
-  }
-  const profileMap = new Map(profiles.map((p) => [p.id, toDisplayName(p.display_name)]));
+  const profileMap = new Map(profiles.map((p) => [p.id, toPublicDisplayName(p.display_name)]));
 
   const topN = 20;
   return Array.from(byUser.entries())

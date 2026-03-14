@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { toPublicDisplayName } from "@/lib/displayName";
 
 /** ニックネームでプロフィール検索（自分と既にフォロー中は除く） */
 export async function GET(req: Request) {
@@ -19,17 +20,21 @@ export async function GET(req: Request) {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, display_name")
+    .select("id, display_name, avatar_url, bio")
     .neq("id", user.id)
     .ilike("display_name", `%${q}%`)
     .limit(20);
 
   const users = (profiles ?? [])
     .filter((p: { id: string }) => !followingIds.has(p.id))
-    .map((p: { id: string; display_name: string | null }) => ({
-      id: p.id,
-      display_name: p.display_name?.trim() && !p.display_name.includes("@") ? p.display_name.trim() : "匿名",
-    }));
+    .map(
+      (p: { id: string; display_name: string | null; avatar_url: string | null; bio: string | null }) => ({
+        id: p.id,
+        display_name: toPublicDisplayName(p.display_name),
+        avatar_url: p.avatar_url ?? null,
+        bio: p.bio ?? null,
+      })
+    );
 
   return NextResponse.json({ users });
 }

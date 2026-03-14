@@ -68,7 +68,7 @@ export function VenueRankingSearch({
   const buildHref = (venueId: string) => {
     const params = new URLSearchParams(queryString || undefined);
     params.set("venue", venueId);
-    return `${basePath}?${params.toString()}`;
+    return `${basePath}?${params.toString()}#venue-detail`;
   };
 
   return (
@@ -132,25 +132,25 @@ export function VenueRankingSearch({
                   <li key={`${e.rank}-${e.venueId}`}>
                     <Link
                       href={href}
-                      className={`flex items-center justify-between rounded-button border px-4 py-2 transition-colors ${
+                      className={`flex items-center justify-between gap-3 rounded-button border px-4 py-2 transition-colors ${
                         isSelected
                           ? "border-live-500 bg-live-100 text-live-900"
                           : "border-live-100 bg-surface-muted/50 hover:bg-live-50/50"
                       }`}
                     >
-                      <span className="flex items-center gap-3">
+                      <span className="flex min-w-0 flex-1 items-center gap-3">
                         <span
                           className={
                             e.rank <= 3
                               ? "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-live-100 text-sm font-bold text-live-800"
-                              : "text-sm font-medium text-gray-500"
+                              : "text-sm font-medium text-gray-500 shrink-0"
                           }
                         >
                           {e.rank}
                         </span>
-                        <span className="font-bold text-gray-900">{e.venueLabel}</span>
+                        <span className="truncate font-bold text-gray-900">{e.venueLabel}</span>
                       </span>
-                      <span className="text-sm font-bold text-live-600">
+                      <span className="shrink-0 text-sm font-bold text-live-600 whitespace-nowrap">
                         {e.count}
                         <span className="ml-0.5 text-gray-500">回（合計）</span>
                       </span>

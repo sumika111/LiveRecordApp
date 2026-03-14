@@ -119,10 +119,10 @@ export default async function MyRecordPage({
               const v = e.venues;
               const venueLabel = v ? `${v.name}（${v.prefecture}${v.city ? ` ${v.city}` : ""}）` : "—";
               return (
-                <li key={row.id} className="card">
-                  <div className="flex items-start gap-3">
+                <li key={row.id} className="card relative">
+                  <div className="relative z-10 flex items-start gap-3">
                     {row.photo_url ? (
-                      <Link href={`/my/record/${row.id}`} className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-muted">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-muted">
                         <Image
                           src={row.photo_url}
                           alt=""
@@ -131,31 +131,34 @@ export default async function MyRecordPage({
                           sizes="56px"
                           unoptimized
                         />
-                      </Link>
+                      </div>
                     ) : (
                       <div className="h-14 w-14 shrink-0 rounded-lg bg-surface-muted" aria-hidden />
                     )}
-                    <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
-                      <Link href={`/my/record/${row.id}`} className="min-w-0 flex-1 block">
-                        <p className="font-bold text-gray-900">{e.title}</p>
-                        {(e.artist_name || (e.event_artists && e.event_artists.length > 0)) && (
-                          <p className="mt-0.5 text-sm text-live-700">{formatEventArtists(e)}</p>
-                        )}
-                        <p className="mt-0.5 text-sm text-gray-600">
-                          {e.event_date} ／ {venueLabel}
-                        </p>
-                        {row.memo?.trim() && (
-                          <p className="mt-1 text-sm text-gray-500 line-clamp-1">{row.memo}</p>
-                        )}
-                      </Link>
-                      <Link
-                        href={`/my/edit?id=${row.id}`}
-                        className="btn-secondary shrink-0 py-1.5 text-sm"
-                      >
-                        編集
-                      </Link>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900">{e.title}</p>
+                      {(e.artist_name || (e.event_artists && e.event_artists.length > 0)) && (
+                        <p className="mt-0.5 text-sm text-live-700">{formatEventArtists(e)}</p>
+                      )}
+                      <p className="mt-0.5 text-sm text-gray-600">
+                        {e.event_date} ／ {venueLabel}
+                      </p>
+                      {row.memo?.trim() && (
+                        <p className="mt-1 text-sm text-gray-500 line-clamp-1">{row.memo}</p>
+                      )}
                     </div>
+                    <Link
+                      href={`/my/edit?id=${row.id}`}
+                      className="btn-secondary relative z-30 shrink-0 py-1.5 text-sm"
+                    >
+                      編集
+                    </Link>
                   </div>
+                  <Link
+                    href={`/my/record/${row.id}`}
+                    className="absolute inset-0 z-20"
+                    aria-label="詳細を見る"
+                  />
                 </li>
               );
             })}

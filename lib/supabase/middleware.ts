@@ -26,7 +26,18 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user?.email && !request.nextUrl.pathname.startsWith("/api/auth/signout-banned")) {
+    const { data: banned } = await supabase
+      .from("banned_emails")
+      .select("email")
+      .eq("email", user.email.trim().toLowerCase())
+      .maybeSingle();
+    if (banned) {
+      return NextResponse.redirect(new URL("/api/auth/signout-banned", request.url));
+    }
+  }
 
   return supabaseResponse;
 }

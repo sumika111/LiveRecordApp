@@ -4,6 +4,7 @@ import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
 import { formatEventArtists } from "@/lib/eventArtists";
 import { LikeButton } from "@/components/LikeButton";
+import { UserDisplay } from "@/components/UserDisplay";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -33,12 +34,8 @@ export default async function MyRecordDetailPage({ params }: Params) {
   }
 
   const { data: profile } = !isMine
-    ? await supabase.from("profiles").select("display_name").eq("id", row.user_id).single()
+    ? await supabase.from("profiles").select("display_name, avatar_url, bio").eq("id", row.user_id).single()
     : { data: null };
-  const authorName =
-    profile?.display_name?.trim() && !profile.display_name.includes("@")
-      ? profile.display_name.trim()
-      : "匿名";
 
   const { count: likeCount } = await supabase
     .from("likes")
@@ -72,8 +69,13 @@ export default async function MyRecordDetailPage({ params }: Params) {
           initialCount={likeCount ?? 0}
         />
       </div>
-      {!isMine && (
-        <p className="text-sm text-live-700 font-bold">{authorName} さんの記録</p>
+      {!isMine && profile && (
+        <UserDisplay
+          displayName={profile.display_name ?? ""}
+          avatarUrl={profile.avatar_url ?? null}
+          bio={profile.bio ?? null}
+          size="sm"
+        />
       )}
 
       {row.photo_url && (

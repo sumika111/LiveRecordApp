@@ -1,4 +1,5 @@
 import { getOptionalUser } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/admin";
 import { AppLayout } from "@/components/AppLayout";
 
 export default async function MainLayout({
@@ -7,5 +8,6 @@ export default async function MainLayout({
   children: React.ReactNode;
 }) {
   const user = await getOptionalUser();
-  return <AppLayout user={user}>{children}</AppLayout>;
+  const admin = user ? await isAdmin(user) : false;
+  return <AppLayout user={user} isAdmin={admin}>{children}</AppLayout>;
 }
