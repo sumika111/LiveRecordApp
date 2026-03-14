@@ -1,0 +1,32 @@
+{
+  "name": "live-record-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "html-to-image": "^1.11.13",
+    "leaflet": "^1.9.4",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-leaflet": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
+  }
+}

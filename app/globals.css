@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 45, 40, 35;
+  --background-rgb: 250, 248, 245;
+  --live-accent: 224, 140, 0;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+/* タップ時のハイライトを控えめに（若者向け・スマホで気持ちいい） */
+* {
+  -webkit-tap-highlight-color: rgba(var(--live-accent), 0.12);
+}
+
+/* ボタン・カードのホバーは滑らかに */
+@layer components {
+  .btn-primary {
+    @apply rounded-button bg-live-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:bg-live-600 hover:shadow-md active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply rounded-button border-2 border-live-200 bg-white px-4 py-2.5 text-sm font-bold text-live-800 transition-all duration-200 hover:border-live-300 hover:bg-live-50 active:scale-[0.98];
+  }
+  .card {
+    @apply rounded-card border border-live-100 bg-surface-card p-4 shadow-card transition-shadow duration-200 hover:shadow-cardHover;
+  }
+}
