@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { DatePickerPopover } from "@/components/DatePickerPopover";
+import { useToast } from "@/components/Toast";
+import { motion } from "framer-motion";
 
 const PREFECTURES = [
   "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
@@ -27,6 +29,7 @@ type Venue = {
 
 export function RecordForm({ userId }: { userId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(true);
   const [search, setSearch] = useState("");
@@ -55,6 +58,7 @@ export function RecordForm({ userId }: { userId: string }) {
   const [postalCodeLoading, setPostalCodeLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "ok"; text: string } | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [showEditVenueAddress, setShowEditVenueAddress] = useState(false);
   const [editVenueName, setEditVenueName] = useState("");
   const [editVenuePostalCode, setEditVenuePostalCode] = useState("");
@@ -395,30 +399,61 @@ export function RecordForm({ userId }: { userId: string }) {
           event_date: eventDate,
           title: title.trim(),
           artist_name: artistNames[0],
-          memo: memo.trim() || null,
           created_by: userId,
         })
         .select("id")
         .single();
       if (insertEventError) {
         setSubmitting(false);
+        toast.error(insertEventError.message);
         setMessage({ type: "error", text: insertEventError.message });
         return;
       }
       eventId = inserted.id;
     }
 
-    const { error: attendanceError } = await supabase.from("attendances").insert({
-      user_id: userId,
-      event_id: eventId,
-    });
+    const { data: newAttendance, error: attendanceError } = await supabase
+      .from("attendances")
+      .insert({ user_id: userId, event_id: eventId })
+      .select("id")
+      .single();
     if (attendanceError) {
       setSubmitting(false);
-      if (attendanceError.code === "23505") {
-        setMessage({ type: "error", text: "この公演は既に記録済みです。" });
-      } else {
-        setMessage({ type: "error", text: attendanceError.message });
+      const msg =
+        attendanceError.code === "23505"
+          ? "この公演は既に記録済みです。"
+          : attendanceError.message;
+      toast.error(msg);
+      setMessage({ type: "error", text: msg });
+      return;
+    }
+    const attendanceId = newAttendance!.id;
+
+    let photoUrl: string | null = null;
+    if (photoFile && photoFile.size > 0) {
+      const ext = photoFile.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeExt = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext) ? ext : "jpg";
+      const path = `${userId}/${attendanceId}.${safeExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("attendance-photos")
+        .upload(path, photoFile, { upsert: true });
+      if (uploadError) {
+        setSubmitting(false);
+        toast.error("写真のアップロードに失敗しました。Storage バケット「attendance-photos」の設定を確認してください。");
+        setMessage({ type: "error", text: uploadError.message });
+        return;
       }
+      const { data: urlData } = supabase.storage.from("attendance-photos").getPublicUrl(path);
+      photoUrl = urlData.publicUrl;
+    }
+    const { error: updateAttError } = await supabase
+      .from("attendances")
+      .update({ memo: memo.trim() || null, photo_url: photoUrl })
+      .eq("id", attendanceId);
+    if (updateAttError) {
+      setSubmitting(false);
+      toast.error("楽しかったこと・写真の保存に失敗しました。");
+      setMessage({ type: "error", text: updateAttError.message });
       return;
     }
 
@@ -444,7 +479,7 @@ export function RecordForm({ userId }: { userId: string }) {
     }
 
     setSubmitting(false);
-    setMessage({ type: "ok", text: "記録しました！" });
+    toast.success("記録しました！");
     router.push("/my");
     router.refresh();
   }
@@ -876,16 +911,61 @@ export function RecordForm({ userId }: { userId: string }) {
           </p>
         </div>
 
-        {/* メモ */}
+        {/* 思い出の写真1枚 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            思い出の写真（1枚・任意）
+          </label>
+          <p className="mt-0.5 text-xs text-gray-500 mb-2">
+            スマホでは写真ライブラリから、Macでは写真.app からドラッグ＆ドロップもできます。
+          </p>
+          <div
+            className="rounded-button border-2 border-dashed border-gray-300 bg-surface-muted/50 p-4 text-center transition-colors hover:border-live-300 hover:bg-live-50/30"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.add("border-live-400", "bg-live-50/50");
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove("border-live-400", "bg-live-50/50");
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove("border-live-400", "bg-live-50/50");
+              const file = e.dataTransfer.files[0];
+              if (file && file.type.startsWith("image/")) setPhotoFile(file);
+            }}
+          >
+            <input
+              id="photo-upload"
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            />
+            {photoFile ? (
+              <p className="text-sm text-live-700 font-medium">
+                ✓ {photoFile.name}
+              </p>
+            ) : (
+              <label htmlFor="photo-upload" className="cursor-pointer text-sm text-gray-600 hover:text-live-700">
+                ここにドラッグ＆ドロップ または クリックして選択
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* 楽しかったこと（メモ） */}
         <div>
           <label htmlFor="memo" className="block text-sm font-medium text-gray-700 mb-1">
-            メモ（任意）
+            楽しかったこと（任意）
           </label>
           <textarea
             id="memo"
-            rows={2}
+            rows={3}
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
+            placeholder="その日の思い出をメモしておけます"
             className="block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
           />
         </div>
@@ -903,7 +983,7 @@ export function RecordForm({ userId }: { userId: string }) {
         )}
 
         <div className="flex gap-3">
-          <button
+          <motion.button
             type="submit"
             disabled={
               submitting ||
@@ -914,10 +994,19 @@ export function RecordForm({ userId }: { userId: string }) {
                 ? !artistName.trim()
                 : artistList.every((s) => !s.trim()))
             }
-            className="btn-primary disabled:opacity-50"
+            className="btn-primary disabled:opacity-50 flex items-center justify-center gap-2"
+            whileHover={!submitting ? { scale: 1.02 } : undefined}
+            whileTap={!submitting ? { scale: 0.98 } : undefined}
           >
+            {submitting && (
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+                className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent"
+              />
+            )}
             {submitting ? "保存中..." : "記録する"}
-          </button>
+          </motion.button>
           <Link href="/" className="btn-secondary">
             キャンセル
           </Link>

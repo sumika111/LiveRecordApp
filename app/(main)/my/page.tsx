@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
@@ -6,12 +7,13 @@ import { formatEventArtists } from "@/lib/eventArtists";
 
 type Row = {
   id: string;
+  memo: string | null;
+  photo_url: string | null;
   events: {
     id: string;
     event_date: string;
     title: string;
     artist_name: string | null;
-    memo: string | null;
     venues: { name: string; prefecture: string; city: string | null } | null;
     event_artists: Array<{ artist_name: string }> | null;
   } | null;
@@ -33,7 +35,7 @@ export default async function MyRecordPage({
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("attendances")
-    .select("id, events(id, event_date, title, artist_name, memo, venues(name, prefecture, city), event_artists(artist_name))")
+    .select("id, memo, photo_url, events(id, event_date, title, artist_name, venues(name, prefecture, city), event_artists(artist_name))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -118,25 +120,41 @@ export default async function MyRecordPage({
               const venueLabel = v ? `${v.name}（${v.prefecture}${v.city ? ` ${v.city}` : ""}）` : "—";
               return (
                 <li key={row.id} className="card">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-gray-900">{e.title}</p>
-                      {(e.artist_name || (e.event_artists && e.event_artists.length > 0)) && (
-                        <p className="mt-0.5 text-sm text-live-700">{formatEventArtists(e)}</p>
-                      )}
-                      <p className="mt-0.5 text-sm text-gray-600">
-                        {e.event_date} ／ {venueLabel}
-                      </p>
-                      {e.memo && (
-                        <p className="mt-1 text-sm text-gray-500">{e.memo}</p>
-                      )}
+                  <div className="flex items-start gap-3">
+                    {row.photo_url ? (
+                      <Link href={`/my/record/${row.id}`} className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-muted">
+                        <Image
+                          src={row.photo_url}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="56px"
+                          unoptimized
+                        />
+                      </Link>
+                    ) : (
+                      <div className="h-14 w-14 shrink-0 rounded-lg bg-surface-muted" aria-hidden />
+                    )}
+                    <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+                      <Link href={`/my/record/${row.id}`} className="min-w-0 flex-1 block">
+                        <p className="font-bold text-gray-900">{e.title}</p>
+                        {(e.artist_name || (e.event_artists && e.event_artists.length > 0)) && (
+                          <p className="mt-0.5 text-sm text-live-700">{formatEventArtists(e)}</p>
+                        )}
+                        <p className="mt-0.5 text-sm text-gray-600">
+                          {e.event_date} ／ {venueLabel}
+                        </p>
+                        {row.memo?.trim() && (
+                          <p className="mt-1 text-sm text-gray-500 line-clamp-1">{row.memo}</p>
+                        )}
+                      </Link>
+                      <Link
+                        href={`/my/edit?id=${row.id}`}
+                        className="btn-secondary shrink-0 py-1.5 text-sm"
+                      >
+                        編集
+                      </Link>
                     </div>
-                    <Link
-                      href={`/my/edit?id=${row.id}`}
-                      className="btn-secondary shrink-0 py-1.5 text-sm"
-                    >
-                      編集
-                    </Link>
                   </div>
                 </li>
               );

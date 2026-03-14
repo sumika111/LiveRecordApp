@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
-import { formatEventArtists } from "@/lib/eventArtists";
+import { HomeHero } from "@/components/HomeHero";
+import { HomeAuthenticated } from "@/components/HomeAuthenticated";
 
 type Row = {
   id: string;
@@ -21,24 +21,7 @@ export default async function Home() {
   const user = await getOptionalUser();
 
   if (!user) {
-    return (
-      <>
-        <h1 className="text-2xl font-bold tracking-tight text-live-900">
-          ライブ記録
-        </h1>
-        <p className="mt-2 text-gray-600">
-          行ったライブを記録して、ランキングで自慢しよう。
-        </p>
-        <div className="mt-8">
-          <p className="text-gray-600">
-            ログインすると、行ったライブを公演単位で記録できます。
-          </p>
-          <Link href="/login" className="btn-primary mt-4 inline-block">
-            ログイン / 新規登録
-          </Link>
-        </div>
-      </>
-    );
+    return <HomeHero />;
   }
 
   const supabase = await createClient();
@@ -66,83 +49,12 @@ export default async function Home() {
     .slice(0, HOME_RECENT_LIMIT);
 
   return (
-    <>
-      <h1 className="text-2xl font-bold tracking-tight text-live-900">
-        ライブ記録
-      </h1>
-      <p className="mt-2 text-gray-600">
-        行ったライブを記録して、ランキングで自慢しよう。
-      </p>
-
-      {/* サマリ */}
-      <div className="mt-6 grid grid-cols-3 gap-3">
-        <div className="card rounded-card text-center">
-          <p className="text-2xl font-bold text-live-600">{totalEvents}</p>
-          <p className="mt-0.5 text-xs font-bold text-gray-600">公演</p>
-        </div>
-        <div className="card rounded-card text-center">
-          <p className="text-2xl font-bold text-live-600">{totalVenues}</p>
-          <p className="mt-0.5 text-xs font-bold text-gray-600">会場</p>
-        </div>
-        <div className="card rounded-card text-center">
-          <p className="text-2xl font-bold text-live-600">{totalPrefectures}</p>
-          <p className="mt-0.5 text-xs font-bold text-gray-600">都道府県</p>
-        </div>
-      </div>
-
-      {/* 直近の記録 */}
-      <h2 className="mt-8 text-lg font-bold text-live-900">直近の記録</h2>
-      {recentList.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-500">
-          まだ記録がありません。「記録する」から追加しましょう。
-        </p>
-      ) : (
-        <ul className="mt-2 space-y-2">
-          {recentList.map((row) => {
-            const e = row.events;
-            if (!e) return null;
-            const v = e.venues;
-            const venueLabel = v
-              ? `${v.name}（${v.prefecture}${v.city ? ` ${v.city}` : ""}）`
-              : "—";
-            return (
-              <li key={row.id} className="card py-3">
-                <Link href={`/my/edit?id=${row.id}`} className="block">
-                  <p className="font-bold text-gray-900">{e.title}</p>
-                  {(e.artist_name || (e.event_artists && e.event_artists.length > 0)) && (
-                    <p className="mt-0.5 text-sm text-live-700">{formatEventArtists(e)}</p>
-                  )}
-                  <p className="mt-0.5 text-sm text-gray-600">
-                    {e.event_date} ／ {venueLabel}
-                  </p>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {list.length > HOME_RECENT_LIMIT && (
-        <p className="mt-3">
-          <Link href="/my" className="text-sm font-bold text-live-600 hover:underline">
-            マイ記録で全件を見る →
-          </Link>
-        </p>
-      )}
-
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/record" className="btn-primary">
-          記録する
-        </Link>
-        <Link href="/my" className="btn-secondary">
-          マイ記録
-        </Link>
-        <Link href="/ranking" className="btn-secondary">
-          ランキング
-        </Link>
-        <Link href="/profile" className="btn-secondary">
-          ニックネーム設定
-        </Link>
-      </div>
-    </>
+    <HomeAuthenticated
+      totalEvents={totalEvents}
+      totalVenues={totalVenues}
+      totalPrefectures={totalPrefectures}
+      recentList={recentList}
+      totalCount={list.length}
+    />
   );
 }

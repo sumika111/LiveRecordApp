@@ -5,9 +5,12 @@ import { getOptionalUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
 import { formatEventArtists } from "@/lib/eventArtists";
 import { MyListFilters } from "@/components/MyListFilters";
+import { MyListItems } from "@/components/MyListItems";
 
 type Row = {
   id: string;
+  memo: string | null;
+  photo_url: string | null;
   events: {
     id: string;
     event_date: string;
@@ -35,7 +38,7 @@ export default async function MyListPage({ searchParams }: Params) {
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("attendances")
-    .select("id, events(id, event_date, title, artist_name, memo, venue_id, venues(id, name, prefecture, city), event_artists(artist_name))")
+    .select("id, memo, photo_url, events(id, event_date, title, artist_name, memo, venue_id, venues(id, name, prefecture, city), event_artists(artist_name))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -136,38 +139,26 @@ export default async function MyListPage({ searchParams }: Params) {
       {list.length === 0 ? (
         <p className="mt-6 text-gray-500">まだ記録がありません。</p>
       ) : (
-        <ul className="mt-4 space-y-3">
-          {list.map((row) => {
-            const e = row.events;
-            if (!e) return null;
+        <MyListItems
+          items={list.map((row) => {
+            const e = row.events!;
             const v = e.venues;
             const venueLabel = v ? `${v.name}（${v.prefecture}${v.city ? ` ${v.city}` : ""}）` : "—";
-            return (
-              <li key={row.id} className="card">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-gray-900">{e.title}</p>
-                    {(e.artist_name || (e.event_artists && e.event_artists.length > 0)) && (
-                      <p className="mt-0.5 text-sm text-live-700">{formatEventArtists(e)}</p>
-                    )}
-                    <p className="mt-0.5 text-sm text-gray-600">
-                      {e.event_date} ／ {venueLabel}
-                    </p>
-                    {e.memo && (
-                      <p className="mt-1 text-sm text-gray-500">{e.memo}</p>
-                    )}
-                  </div>
-                  <Link
-                    href={`/my/edit?id=${row.id}`}
-                    className="btn-secondary shrink-0 py-1.5 text-sm"
-                  >
-                    編集
-                  </Link>
-                </div>
-              </li>
-            );
+            const artistDisplay =
+              e.artist_name || (e.event_artists && e.event_artists.length > 0)
+                ? formatEventArtists(e)
+                : null;
+            return {
+              id: row.id,
+              title: e.title,
+              artistDisplay,
+              eventDate: e.event_date,
+              venueLabel,
+              memo: row.memo ?? null,
+              photoUrl: row.photo_url ?? null,
+            };
           })}
-        </ul>
+        />
       )}
 
       <Link

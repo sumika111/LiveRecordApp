@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { LogoutButton } from "@/components/LogoutButton";
 
 const NAV_ITEMS = [
@@ -29,11 +30,10 @@ export function AppLayout({
       {/* ヘッダー：常に上に固定・背景ぼかしで若者向けのすっきり感 */}
       <header className="sticky top-0 z-50 border-b border-live-100 bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-          <Link
-            href="/"
-            className="text-lg font-bold tracking-tight text-live-900 transition-opacity hover:opacity-80"
-          >
-            ライブ記録
+          <Link href="/" className="text-lg font-bold tracking-tight text-live-900 transition-opacity hover:opacity-80">
+            <motion.span whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              ライブ記録
+            </motion.span>
           </Link>
           <div className="flex items-center gap-3">
             {user ? (
@@ -49,7 +49,9 @@ export function AppLayout({
                           : "text-gray-600 hover:bg-live-50 hover:text-live-700"
                       }`}
                     >
-                      {label}
+                      <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        {label}
+                      </motion.span>
                     </Link>
                   ))}
                 </nav>
@@ -66,11 +68,14 @@ export function AppLayout({
                 <LogoutButton />
               </>
             ) : (
-              <Link
-                href="/login"
-                className="btn-primary"
-              >
-                ログイン
+              <Link href="/login" className="btn-primary">
+                <motion.span
+                  className="inline-block"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  ログイン
+                </motion.span>
               </Link>
             )}
           </div>

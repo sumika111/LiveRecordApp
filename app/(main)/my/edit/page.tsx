@@ -16,7 +16,7 @@ export default async function MyEditPage({ searchParams }: Params) {
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("attendances")
-    .select("id, event_id, events(id, event_date, title, artist_name, memo, venues(name, prefecture, city), event_artists(artist_name))")
+    .select("id, memo, photo_url, event_id, events(id, event_date, title, artist_name, venues(name, prefecture, city), event_artists(artist_name))")
     .eq("id", attendanceId)
     .eq("user_id", user.id)
     .single();
@@ -28,7 +28,6 @@ export default async function MyEditPage({ searchParams }: Params) {
     event_date: string;
     title: string;
     artist_name: string | null;
-    memo: string | null;
     venues: { name: string; prefecture: string; city: string | null } | null;
     event_artists: Array<{ artist_name: string }> | null;
   };
@@ -45,24 +44,29 @@ export default async function MyEditPage({ searchParams }: Params) {
     <>
       <h1 className="text-xl font-bold tracking-tight text-live-900">公演を編集</h1>
       <p className="mt-1 text-sm text-gray-600">
-        公演名・アーティスト名の打ち間違いなどはここで修正できます。
+        公演名・アーティスト名・楽しかったこと・写真を修正できます。
       </p>
       <EditEventForm
+        userId={user.id}
+        attendanceId={row.id}
         eventId={e.id}
         venueName={venueName}
         initial={{
           event_date: e.event_date,
           title: e.title,
           artist_list: artistList,
-          memo: e.memo,
+          memo: (row.memo as string | null) ?? "",
+          photo_url: (row.photo_url as string | null) ?? null,
         }}
       />
-      <Link
-        href="/my"
-        className="mt-6 inline-block text-sm font-bold text-live-600 hover:underline"
-      >
-        ← マイ記録へ戻る
-      </Link>
+      <div className="mt-6 flex gap-3">
+        <Link href={`/my/record/${row.id}`} className="text-sm font-bold text-live-600 hover:underline">
+          詳細を見る
+        </Link>
+        <Link href="/my" className="text-sm font-bold text-live-600 hover:underline">
+          ← マイ記録へ戻る
+        </Link>
+      </div>
     </>
   );
 }
