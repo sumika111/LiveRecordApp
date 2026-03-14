@@ -76,6 +76,9 @@
 1. `docs/migration_attendances_memo_photo.sql` を SQL Editor で実行し、`attendances` に `memo`・`photo_url` カラムと更新ポリシーを追加する。  
 2. `docs/STORAGE_ATTENDANCE_PHOTOS.md` の手順で Storage バケット `attendance-photos` を作成し、RLS を設定する。
 
+**友達・タイムライン・いいねを使う場合:**  
+`docs/migration_follows_likes.sql` を SQL Editor で実行し、`follows` と `likes` テーブルと RLS を作成する。
+
 以下は個別に実行する場合の参考です。
 
 ### profiles（auth.users と 1:1）

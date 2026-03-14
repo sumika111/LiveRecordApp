@@ -6,9 +6,11 @@ import { motion } from "framer-motion";
 import { LogoutButton } from "@/components/LogoutButton";
 
 const NAV_ITEMS = [
+  { href: "/timeline", label: "タイムライン", short: "TL" },
   { href: "/record", label: "記録する", short: "記録" },
   { href: "/my", label: "マイ記録", short: "マイ" },
   { href: "/ranking", label: "ランキング", short: "ランキング" },
+  { href: "/friends", label: "友達", short: "友達" },
 ] as const;
 
 export function AppLayout({
