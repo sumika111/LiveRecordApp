@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 export type CommentWithAuthor = {
   id: string;
@@ -18,6 +18,8 @@ type Props = {
   currentUserId: string;
   /** 開く前に表示するコメント件数（タイムラインなどでサーバーから渡す） */
   initialCommentCount?: number;
+  /** 詳細ページなどで初回からコメント欄を開いた状態にする */
+  defaultOpen?: boolean;
 };
 
 export type CommentNode = {
@@ -51,8 +53,8 @@ function hasReplies(node: CommentNode): boolean {
   return node.children.length > 0 || node.children.some(hasReplies);
 }
 
-export function AttendanceComments({ attendanceId, currentUserId, initialCommentCount = 0 }: Props) {
-  const [open, setOpen] = useState(false);
+export function AttendanceComments({ attendanceId, currentUserId, initialCommentCount = 0, defaultOpen = false }: Props) {
+  const [open, setOpen] = useState(defaultOpen);
   const [comments, setComments] = useState<CommentWithAuthor[] | null>(null);
   const [myReportIdsByComment, setMyReportIdsByComment] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,9 @@ export function AttendanceComments({ attendanceId, currentUserId, initialComment
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+  const [commentLikes, setCommentLikes] = useState<{ counts: Record<string, number>; likedIds: string[] }>({ counts: {}, likedIds: [] });
+  const [likingCommentId, setLikingCommentId] = useState<string | null>(null);
+  const hasScrolledToHash = useRef(false);
 
   const fetchMyReports = useCallback(async () => {
     try {
@@ -79,9 +84,10 @@ export function AttendanceComments({ attendanceId, currentUserId, initialComment
   const fetchComments = useCallback(async () => {
     setLoading(true);
     try {
-      const [commentsRes, reportsRes] = await Promise.all([
+      const [commentsRes, reportsRes, likesRes] = await Promise.all([
         fetch(`/api/attendances/${attendanceId}/comments`),
         fetch("/api/reports/mine"),
+        fetch(`/api/attendances/${attendanceId}/comment-likes`),
       ]);
       const commentsData = await commentsRes.json();
       if (commentsRes.ok) setComments(Array.isArray(commentsData) ? commentsData : []);
@@ -95,12 +101,60 @@ export function AttendanceComments({ attendanceId, currentUserId, initialComment
         });
         setMyReportIdsByComment(map);
       }
+
+      const likesData = await likesRes.json();
+      if (likesRes.ok && likesData.counts && Array.isArray(likesData.likedIds)) {
+        setCommentLikes({ counts: likesData.counts, likedIds: likesData.likedIds });
+      } else {
+        setCommentLikes({ counts: {}, likedIds: [] });
+      }
     } catch {
       setComments([]);
     } finally {
       setLoading(false);
     }
   }, [attendanceId]);
+
+  const onCommentLikeToggle = useCallback(async (commentId: string) => {
+    setLikingCommentId(commentId);
+    try {
+      const res = await fetch("/api/comment-likes/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment_id: commentId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCommentLikes((prev) => {
+          const liked = !!data.liked;
+          const newLikedIds = liked
+            ? [...prev.likedIds, commentId]
+            : prev.likedIds.filter((id) => id !== commentId);
+          return {
+            counts: { ...prev.counts, [commentId]: data.count ?? 0 },
+            likedIds: newLikedIds,
+          };
+        });
+      }
+    } finally {
+      setLikingCommentId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (defaultOpen && open && comments === null) fetchComments();
+  }, [defaultOpen, open, comments, fetchComments]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !comments?.length || loading || hasScrolledToHash.current) return;
+    const hash = window.location.hash?.replace(/^#/, "");
+    if (!hash.startsWith("comment-")) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      hasScrolledToHash.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [comments, loading]);
 
   const onToggle = () => {
     if (!open && comments === null) fetchComments();
@@ -227,6 +281,10 @@ export function AttendanceComments({ attendanceId, currentUserId, initialComment
                       deleteComment={deleteComment}
                       getReportId={(commentId) => myReportIdsByComment.get(commentId)}
                       onReportsChange={fetchMyReports}
+                      getLikeCount={(commentId) => commentLikes.counts[commentId] ?? 0}
+                      isLiked={(commentId) => commentLikes.likedIds.includes(commentId)}
+                      onCommentLikeToggle={onCommentLikeToggle}
+                      likingCommentId={likingCommentId}
                     />
                   ))}
                 </ul>
@@ -255,6 +313,10 @@ function CommentNodeItem({
   deleteComment,
   getReportId,
   onReportsChange,
+  getLikeCount,
+  isLiked,
+  onCommentLikeToggle,
+  likingCommentId,
 }: {
   node: CommentNode;
   depth: number;
@@ -271,11 +333,18 @@ function CommentNodeItem({
   deleteComment: (commentId: string, hasReplies: boolean) => void;
   getReportId: (commentId: string) => string | undefined;
   onReportsChange: () => void;
+  getLikeCount: (commentId: string) => number;
+  isLiked: (commentId: string) => boolean;
+  onCommentLikeToggle: (commentId: string) => void;
+  likingCommentId: string | null;
 }) {
   const { comment, children } = node;
   const isReply = depth > 0;
   return (
-    <li className={depth === 0 ? "rounded-button border border-live-100 bg-surface-muted/50 p-3" : undefined}>
+    <li
+      id={`comment-${comment.id}`}
+      className={depth === 0 ? "rounded-button border border-live-100 bg-surface-muted/50 p-3" : undefined}
+    >
       <CommentItem
         comment={comment}
         isOwn={comment.user_id === currentUserId}
@@ -292,6 +361,10 @@ function CommentNodeItem({
         isReply={isReply}
         reportIdFromServer={getReportId(comment.id)}
         onReportsChange={onReportsChange}
+        likeCount={getLikeCount(comment.id)}
+        liked={isLiked(comment.id)}
+        onCommentLikeToggle={onCommentLikeToggle}
+        likingCommentId={likingCommentId}
       />
       {children.length > 0 && (
         <ul className="mt-2 ml-4 space-y-2 border-l-2 border-live-200 pl-3">
@@ -313,6 +386,10 @@ function CommentNodeItem({
               deleteComment={deleteComment}
               getReportId={getReportId}
               onReportsChange={onReportsChange}
+              getLikeCount={getLikeCount}
+              isLiked={isLiked}
+              onCommentLikeToggle={onCommentLikeToggle}
+              likingCommentId={likingCommentId}
             />
           ))}
         </ul>
@@ -379,6 +456,10 @@ function CommentItem({
   isReply = false,
   reportIdFromServer,
   onReportsChange,
+  likeCount,
+  liked,
+  onCommentLikeToggle,
+  likingCommentId,
 }: {
   comment: CommentWithAuthor;
   isOwn: boolean;
@@ -395,6 +476,10 @@ function CommentItem({
   isReply?: boolean;
   reportIdFromServer?: string;
   onReportsChange?: () => void;
+  likeCount: number;
+  liked: boolean;
+  onCommentLikeToggle: (commentId: string) => void;
+  likingCommentId: string | null;
 }) {
   const isEditing = editId === comment.id;
   const isReplying = replyTo === comment.id;
@@ -450,7 +535,17 @@ function CommentItem({
       )}
 
       {!isEditing && (
-        <div className="mt-1 flex flex-wrap gap-2 text-xs">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => onCommentLikeToggle(comment.id)}
+            disabled={likingCommentId === comment.id}
+            className="inline-flex items-center gap-0.5 rounded-button px-1.5 py-0.5 font-bold text-gray-600 hover:bg-live-50 hover:text-live-700 disabled:opacity-50"
+            aria-pressed={liked}
+          >
+            <span className={liked ? "text-red-500" : ""}>{liked ? "❤️" : "🤍"}</span>
+            {likeCount > 0 && <span>{likeCount}</span>}
+          </button>
           <button
             type="button"
             onClick={() => setReplyTo(isReplying ? null : comment.id)}

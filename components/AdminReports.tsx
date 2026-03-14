@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 
 type ReportRow = {
   id: string;
-  comment_id: string;
+  comment_id: string | null;
   comment_body: string;
+  attendance_id: string | null;
   reported_user_id: string;
   reported_user_display_name: string;
   reporter_id: string;
@@ -100,6 +101,18 @@ export function AdminReports() {
                       {r.comment_body === "（ユーザーを通報）" ? "通報内容:" : "通報されたコメント:"}
                     </p>
                     <p className="mt-0.5 whitespace-pre-wrap text-gray-700">{r.comment_body}</p>
+                    {r.comment_id && r.attendance_id && (
+                      <p className="mt-2">
+                        <a
+                          href={`/my/record/${r.attendance_id}#comment-${r.comment_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-live-600 hover:underline"
+                        >
+                          該当コメントのやり取りを確認 →
+                        </a>
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>

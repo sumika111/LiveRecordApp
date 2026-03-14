@@ -20,13 +20,15 @@ export async function GET() {
   if (!reports?.length) return NextResponse.json([]);
 
   const commentIds = [...new Set((reports as { comment_id: string | null }[]).map((r) => r.comment_id).filter(Boolean))];
-  let commentMap = new Map<string, { body: string }>();
+  let commentMap = new Map<string, { body: string; attendance_id: string }>();
   if (commentIds.length > 0) {
     const { data: comments } = await admin
       .from("attendance_comments")
-      .select("id, body")
+      .select("id, body, attendance_id")
       .in("id", commentIds);
-    commentMap = new Map((comments ?? []).map((c: { id: string; body: string }) => [c.id, { body: c.body }]));
+    commentMap = new Map(
+      (comments ?? []).map((c: { id: string; body: string; attendance_id: string }) => [c.id, { body: c.body, attendance_id: c.attendance_id }])
+    );
   }
 
   const userIds = [...new Set(reports.flatMap((r: { reporter_id: string; reported_user_id: string }) => [r.reporter_id, r.reported_user_id]))];
@@ -34,13 +36,15 @@ export async function GET() {
   const profileMap = new Map((profiles ?? []).map((p: { id: string; display_name: string | null }) => [p.id, p.display_name ?? "—"]));
 
   const list = (reports ?? []).map((r: { id: string; comment_id: string | null; reported_user_id: string; reporter_id: string; reason: string | null; created_at: string }) => {
+    const commentInfo = r.comment_id ? commentMap.get(r.comment_id) : null;
     const commentBody = r.comment_id
-      ? (commentMap.get(r.comment_id)?.body ?? "（コメント削除済み）")
+      ? (commentInfo?.body ?? "（コメント削除済み）")
       : "（ユーザーを通報）";
     return {
       id: r.id,
       comment_id: r.comment_id,
       comment_body: commentBody,
+      attendance_id: commentInfo?.attendance_id ?? null,
       reported_user_id: r.reported_user_id,
       reported_user_display_name: profileMap.get(r.reported_user_id) ?? "—",
       reporter_id: r.reporter_id,

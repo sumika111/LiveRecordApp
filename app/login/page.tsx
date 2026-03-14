@@ -1,19 +1,29 @@
 "use client";
 
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+
+type Announcement = { id: string; body: string; created_at: string };
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "ok"; text: string } | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBanned = searchParams.get("banned") === "1";
+
+  useEffect(() => {
+    fetch("/api/announcements")
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setAnnouncements(Array.isArray(data) ? data : []))
+      .catch(() => setAnnouncements([]));
+  }, []);
 
   if (!isSupabaseConfigured()) {
     return (
@@ -93,6 +103,24 @@ export default function LoginPage() {
             記録を始めよう
           </motion.p>
         </div>
+
+        {announcements.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="rounded-card border border-live-300 bg-live-50/80 p-4 text-left text-sm text-live-900"
+          >
+            <p className="font-bold">お知らせ</p>
+            <ul className="mt-2 space-y-1.5">
+              {announcements.map((a) => (
+                <li key={a.id} className="whitespace-pre-wrap">
+                  {a.body}
+                </li>
+              ))}
+            </ul>
+          </motion.section>
+        )}
 
         <motion.section
           initial={{ opacity: 0 }}

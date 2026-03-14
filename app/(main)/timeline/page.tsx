@@ -7,7 +7,6 @@ import { getTimeline, filterTimelineByArtist } from "@/lib/timeline";
 import { formatEventArtists } from "@/lib/eventArtists";
 import { LikeButton } from "@/components/LikeButton";
 import { UserDisplay } from "@/components/UserDisplay";
-import { AttendanceComments } from "@/components/AttendanceComments";
 
 type Props = { searchParams: Promise<{ artist?: string }> };
 
@@ -84,13 +83,12 @@ function TimelineList({
             className="absolute inset-0 z-20"
             aria-label="詳細を見る"
           />
-          <div className="relative z-30">
-            <AttendanceComments
-              attendanceId={item.id}
-              currentUserId={currentUserId}
-              initialCommentCount={item.comment_count}
-            />
-          </div>
+          <Link
+            href={`/my/record/${item.id}`}
+            className="relative z-30 mt-3 block border-t border-live-100 pt-3 text-sm font-bold text-live-600 hover:underline"
+          >
+            コメント{item.comment_count > 0 ? ` (${item.comment_count}件)` : ""}
+          </Link>
         </li>
       ))}
     </ul>

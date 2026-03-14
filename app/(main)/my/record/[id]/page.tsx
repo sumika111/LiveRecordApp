@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatEventArtists } from "@/lib/eventArtists";
 import { LikeButton } from "@/components/LikeButton";
 import { UserDisplay } from "@/components/UserDisplay";
+import { AttendanceComments } from "@/components/AttendanceComments";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -107,6 +108,14 @@ export default async function MyRecordDetailPage({ params }: Params) {
       ) : (
         <p className="text-sm text-gray-500">楽しかったことはまだメモされていません。</p>
       )}
+
+      <section className="border-t border-live-100 pt-4">
+        <AttendanceComments
+          attendanceId={row.id}
+          currentUserId={user.id}
+          defaultOpen
+        />
+      </section>
 
       <div className="flex flex-wrap gap-3 pt-2">
         {isMine ? (

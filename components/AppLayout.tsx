@@ -135,6 +135,19 @@ export function AppLayout({
                 >
                   設定
                 </Link>
+                {!isAdmin && (
+                  <Link
+                    href="/request"
+                    onClick={closeMenu}
+                    className={`rounded-button px-4 py-3 text-left text-sm font-bold transition-colors ${
+                      pathname === "/request"
+                        ? "bg-live-100 text-live-800"
+                        : "text-gray-700 hover:bg-live-50 hover:text-live-700"
+                    }`}
+                  >
+                    管理者への要望
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link
                     href="/admin"
