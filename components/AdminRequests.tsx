@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+const HIGHLIGHT_DURATION_MS = 4000;
 
 type RequestRow = {
   id: string;
@@ -10,11 +12,19 @@ type RequestRow = {
   created_at: string;
 };
 
-export function AdminRequests() {
+export function AdminRequests({
+  readAt,
+  requestTabClickCount,
+}: {
+  readAt: string | null;
+  requestTabClickCount: number;
+}) {
   const [list, setList] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchList = () => {
     fetch("/api/admin/requests")
@@ -30,6 +40,20 @@ export function AdminRequests() {
   useEffect(() => {
     fetchList();
   }, []);
+
+  useEffect(() => {
+    if (requestTabClickCount === 0 || !readAt || list.length === 0) return;
+    const ids = new Set(list.filter((r) => r.created_at > readAt).map((r) => r.id));
+    if (ids.size > 0) setHighlightIds(ids);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setHighlightIds(new Set());
+      timerRef.current = null;
+    }, HIGHLIGHT_DURATION_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [requestTabClickCount, readAt, list]);
 
   async function handleDelete(id: string) {
     if (!confirm("この要望を削除しますか？")) return;
@@ -54,8 +78,15 @@ export function AdminRequests() {
 
   return (
     <ul className="space-y-3">
-      {list.map((r) => (
-        <li key={r.id} className="rounded-button border border-live-100 bg-white p-3 text-sm">
+      {list.map((r) => {
+        const isNew = highlightIds.has(r.id);
+        return (
+          <li
+            key={r.id}
+            className={`rounded-button border p-3 text-sm transition-colors duration-300 ${
+              isNew ? "border-live-400 bg-live-100/80" : "border-live-100 bg-white"
+            }`}
+          >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="text-xs text-gray-500">
               {new Date(r.created_at).toLocaleString("ja-JP")} · {r.display_name}
@@ -70,8 +101,9 @@ export function AdminRequests() {
             </button>
           </div>
           <p className="mt-1 whitespace-pre-wrap text-gray-800">{r.body}</p>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

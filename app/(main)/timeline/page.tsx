@@ -39,13 +39,8 @@ function TimelineList({
                   })}
                 </p>
               </div>
-              <div className="relative z-30 shrink-0">
-                <LikeButton
-                  attendanceId={item.id}
-                  initialLiked={item.liked}
-                  initialCount={item.like_count}
-                />
-              </div>
+              {/* スペーサー: いいねボタンは overlay の上に別レイヤーで表示 */}
+              <div className="h-8 w-14 shrink-0" aria-hidden />
             </div>
             <div className="mt-2 block">
               <p className="font-bold text-gray-900">{item.title}</p>
@@ -83,6 +78,13 @@ function TimelineList({
             className="absolute inset-0 z-20"
             aria-label="詳細を見る"
           />
+          <div className="absolute right-4 top-4 z-30">
+            <LikeButton
+              attendanceId={item.id}
+              initialLiked={item.liked}
+              initialCount={item.like_count}
+            />
+          </div>
           <Link
             href={`/my/record/${item.id}`}
             className="relative z-30 mt-3 block border-t border-live-100 pt-3 text-sm font-bold text-live-600 hover:underline"

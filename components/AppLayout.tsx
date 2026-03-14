@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogoutButton } from "@/components/LogoutButton";
 
@@ -25,6 +25,52 @@ export function AppLayout({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [adminReportCount, setAdminReportCount] = useState(0);
+  const [adminRequestCount, setAdminRequestCount] = useState(0);
+
+  const fetchNotificationCounts = () => {
+    if (!user) return;
+    fetch("/api/notifications/count")
+      .then((r) => r.json())
+      .then((d) => setNotificationCount(typeof d.count === "number" ? d.count : 0))
+      .catch(() => setNotificationCount(0));
+    if (isAdmin) {
+      fetch("/api/admin/notifications/count")
+        .then((r) => r.json())
+        .then((d) => {
+          setAdminReportCount(typeof d.reportCount === "number" ? d.reportCount : 0);
+          setAdminRequestCount(typeof d.requestCount === "number" ? d.requestCount : 0);
+        })
+        .catch(() => {
+          setAdminReportCount(0);
+          setAdminRequestCount(0);
+        });
+    }
+  };
+
+  // 未読件数はメニューを開いたときだけ取得（初回表示時はバッジなし→開いたタイミングで更新）
+  useEffect(() => {
+    if (menuOpen && user) fetchNotificationCounts();
+  }, [menuOpen]);
+
+  // 別ページに移ったら未読バッジを消す（再度メニューを開いたときに取得し直す）
+  useEffect(() => {
+    setNotificationCount(0);
+    if (pathname !== "/admin") {
+      setAdminReportCount(0);
+      setAdminRequestCount(0);
+    }
+  }, [pathname]);
+
+  // メニューを閉じたときも未読バッジを一旦消す
+  useEffect(() => {
+    if (!menuOpen) {
+      setNotificationCount(0);
+      setAdminReportCount(0);
+      setAdminRequestCount(0);
+    }
+  }, [menuOpen]);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -125,6 +171,22 @@ export function AppLayout({
                 ))}
                 <div className="my-2 border-t border-live-100" />
                 <Link
+                  href="/notifications"
+                  onClick={closeMenu}
+                  className={`flex items-center justify-between rounded-button px-4 py-3 text-left text-sm font-bold transition-colors ${
+                    pathname === "/notifications"
+                      ? "bg-live-100 text-live-800"
+                      : "text-gray-700 hover:bg-live-50 hover:text-live-700"
+                  }`}
+                >
+                  通知
+                  {notificationCount > 0 && (
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                      {notificationCount > 99 ? "99+" : notificationCount}
+                    </span>
+                  )}
+                </Link>
+                <Link
                   href="/profile"
                   onClick={closeMenu}
                   className={`rounded-button px-4 py-3 text-left text-sm font-bold transition-colors ${
@@ -152,13 +214,33 @@ export function AppLayout({
                   <Link
                     href="/admin"
                     onClick={closeMenu}
-                    className={`rounded-button px-4 py-3 text-left text-sm font-bold transition-colors ${
+                    className={`flex flex-col gap-0.5 rounded-button px-4 py-3 text-left text-sm font-bold transition-colors ${
                       pathname === "/admin"
                         ? "bg-live-100 text-live-800"
                         : "text-gray-700 hover:bg-live-50 hover:text-live-700"
                     }`}
                   >
-                    管理者画面
+                    <span className="flex items-center justify-between">
+                      管理者画面
+                    </span>
+                    {(adminReportCount > 0 || adminRequestCount > 0) && (
+                      <span className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600">
+                        <span className="flex items-center gap-1.5">
+                          通報
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                            {adminReportCount > 99 ? "99+" : adminReportCount}
+                          </span>
+                        </span>
+                        {adminRequestCount > 0 && (
+                          <span className="flex items-center gap-1.5">
+                            要望
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                              {adminRequestCount > 99 ? "99+" : adminRequestCount}
+                            </span>
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </Link>
                 )}
               </div>

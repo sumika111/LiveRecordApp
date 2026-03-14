@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+const HIGHLIGHT_DURATION_MS = 4000;
 
 type ReportRow = {
   id: string;
@@ -15,11 +17,13 @@ type ReportRow = {
   created_at: string;
 };
 
-export function AdminReports() {
+export function AdminReports({ readAt }: { readAt: string | null }) {
   const [list, setList] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [highlightUserIds, setHighlightUserIds] = useState<Set<string>>(new Set());
+  const clearedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +43,20 @@ export function AdminReports() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!readAt || list.length === 0 || clearedRef.current) return;
+    const newUserIds = new Set<string>();
+    list.forEach((r) => {
+      if (r.created_at > readAt) newUserIds.add(r.reported_user_id);
+    });
+    if (newUserIds.size > 0) setHighlightUserIds(newUserIds);
+    const t = setTimeout(() => {
+      setHighlightUserIds(new Set());
+      clearedRef.current = true;
+    }, HIGHLIGHT_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [readAt, list]);
 
   async function deleteUser(userId: string, displayName: string) {
     if (!confirm(`「${displayName}」のアカウントを削除しますか？\nこのメールアドレスでは二度と登録できなくなります。`)) return;
@@ -74,8 +92,14 @@ export function AdminReports() {
           const first = reports[0];
           const displayName = first.reported_user_display_name;
           const count = reports.length;
+          const isNew = highlightUserIds.has(userId);
           return (
-            <div key={userId} className="rounded-card border border-live-200 bg-surface-card p-4">
+            <div
+              key={userId}
+              className={`rounded-card border p-4 transition-colors duration-300 ${
+                isNew ? "border-live-400 bg-live-100/80" : "border-live-200 bg-surface-card"
+              }`}
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-bold text-gray-900">被通報者: {displayName}</p>
