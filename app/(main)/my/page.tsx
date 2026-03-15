@@ -87,6 +87,15 @@ export default async function MyRecordPage({
             会場を地図にピン表示、タップで行ったライブ一覧
           </span>
         </Link>
+        <Link
+          href="/my/schedule"
+          className="card flex flex-col border-2 border-live-200 bg-live-50/50 hover:border-live-300"
+        >
+          <span className="text-lg font-bold text-live-900">今後の予定</span>
+          <span className="mt-1 text-sm text-live-800">
+            行きたいライブをメモ、行ったらチェック
+          </span>
+        </Link>
       </div>
 
       <h2 className="mt-8 text-lg font-bold text-live-900">
