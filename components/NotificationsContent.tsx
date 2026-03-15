@@ -196,7 +196,7 @@ export function NotificationsContent() {
                             <ul className="space-y-2 text-sm text-gray-700">
                               {card.users.map((u) => (
                                 <li key={u.id} className="flex items-center gap-2">
-                                  <Avatar src={u.avatar_url} name={u.display_name} size={6} />
+                                  <Avatar src={u.avatar_url} name={u.display_name} size="sm" />
                                   <span>{u.display_name}</span>
                                 </li>
                               ))}
