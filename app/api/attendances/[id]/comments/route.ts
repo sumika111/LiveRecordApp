@@ -14,6 +14,7 @@ export type CommentRow = {
 
 export type CommentWithAuthor = CommentRow & {
   display_name: string;
+  avatar_url: string | null;
 };
 
 /** 指定した参加記録のコメント一覧（返信含む）。親削除時は子もDBで削除されるので一覧には出てこない */
@@ -42,7 +43,7 @@ export async function GET(
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, display_name")
+      .select("id, display_name, avatar_url")
       .in("id", userIds);
     const nameMap = new Map(
       (profiles ?? []).map((p: { id: string; display_name: string | null }) => [
@@ -50,9 +51,13 @@ export async function GET(
         toPublicDisplayName(p.display_name),
       ])
     );
+    const avatarMap = new Map(
+      (profiles ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url ?? null])
+    );
     const result: CommentWithAuthor[] = rows.map((r) => ({
       ...r,
       display_name: nameMap.get(r.user_id) ?? "匿名",
+      avatar_url: avatarMap.get(r.user_id) ?? null,
     }));
     return NextResponse.json(result);
   }
@@ -105,13 +110,14 @@ export async function POST(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, avatar_url")
     .eq("id", user.id)
     .single();
 
   const withAuthor: CommentWithAuthor = {
     ...(data as CommentRow),
     display_name: toPublicDisplayName(profile?.display_name ?? null),
+    avatar_url: (profile as { avatar_url?: string | null } | null)?.avatar_url ?? null,
   };
   return NextResponse.json(withAuthor);
 }

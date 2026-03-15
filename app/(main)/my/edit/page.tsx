@@ -60,7 +60,7 @@ export default async function MyEditPage({ searchParams }: Params) {
         }}
       />
       <div className="mt-6 flex gap-3">
-        <Link href={`/my/record/${row.id}`} className="text-sm font-bold text-live-600 hover:underline">
+        <Link href={`/my/record/${row.id}?from=edit`} className="text-sm font-bold text-live-600 hover:underline">
           詳細を見る
         </Link>
         <Link href="/my" className="text-sm font-bold text-live-600 hover:underline">

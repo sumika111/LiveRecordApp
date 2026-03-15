@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
 export type CommentWithAuthor = {
   id: string;
@@ -11,6 +13,7 @@ export type CommentWithAuthor = {
   created_at: string;
   updated_at: string;
   display_name: string;
+  avatar_url?: string | null;
 };
 
 type Props = {
@@ -20,6 +23,8 @@ type Props = {
   initialCommentCount?: number;
   /** 詳細ページなどで初回からコメント欄を開いた状態にする */
   defaultOpen?: boolean;
+  /** コメント者リンクに付与する from（例: timeline → 友達詳細で「TLに戻る」を出したいとき） */
+  returnFrom?: string;
 };
 
 export type CommentNode = {
@@ -53,7 +58,7 @@ function hasReplies(node: CommentNode): boolean {
   return node.children.length > 0 || node.children.some(hasReplies);
 }
 
-export function AttendanceComments({ attendanceId, currentUserId, initialCommentCount = 0, defaultOpen = false }: Props) {
+export function AttendanceComments({ attendanceId, currentUserId, initialCommentCount = 0, defaultOpen = false, returnFrom }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const [comments, setComments] = useState<CommentWithAuthor[] | null>(null);
   const [myReportIdsByComment, setMyReportIdsByComment] = useState<Map<string, string>>(new Map());
@@ -269,6 +274,7 @@ export function AttendanceComments({ attendanceId, currentUserId, initialComment
                       node={node}
                       depth={0}
                       currentUserId={currentUserId}
+                      returnFrom={returnFrom}
                       posting={posting}
                       replyTo={replyTo}
                       setReplyTo={setReplyTo}
@@ -301,6 +307,7 @@ function CommentNodeItem({
   node,
   depth,
   currentUserId,
+  returnFrom,
   posting,
   replyTo,
   setReplyTo,
@@ -321,6 +328,7 @@ function CommentNodeItem({
   node: CommentNode;
   depth: number;
   currentUserId: string;
+  returnFrom?: string;
   posting: boolean;
   replyTo: string | null;
   setReplyTo: (id: string | null) => void;
@@ -348,6 +356,8 @@ function CommentNodeItem({
       <CommentItem
         comment={comment}
         isOwn={comment.user_id === currentUserId}
+        currentUserId={currentUserId}
+        returnFrom={returnFrom}
         posting={posting}
         replyTo={replyTo}
         setReplyTo={setReplyTo}
@@ -366,15 +376,16 @@ function CommentNodeItem({
         onCommentLikeToggle={onCommentLikeToggle}
         likingCommentId={likingCommentId}
       />
-      {children.length > 0 && (
-        <ul className="mt-2 ml-4 space-y-2 border-l-2 border-live-200 pl-3">
-          {children.map((childNode) => (
-            <CommentNodeItem
-              key={childNode.comment.id}
-              node={childNode}
-              depth={depth + 1}
-              currentUserId={currentUserId}
-              posting={posting}
+          {children.length > 0 && (
+            <ul className="mt-2 ml-4 space-y-2 border-l-2 border-live-200 pl-3">
+              {children.map((childNode) => (
+                <CommentNodeItem
+                  key={childNode.comment.id}
+                  node={childNode}
+                  depth={depth + 1}
+                  currentUserId={currentUserId}
+                  returnFrom={returnFrom}
+                  posting={posting}
               replyTo={replyTo}
               setReplyTo={setReplyTo}
               editId={editId}
@@ -440,9 +451,41 @@ function CommentForm({
   );
 }
 
+function CommentAvatar({
+  src,
+  name,
+  href,
+  size = "md",
+}: {
+  src: string | null | undefined;
+  name: string;
+  href: string;
+  size?: "sm" | "md";
+}) {
+  const sizeClass = size === "md" ? "h-8 w-8" : "h-6 w-6";
+  const content = (
+    <div className={`relative shrink-0 overflow-hidden rounded-full bg-live-100 ${sizeClass}`}>
+      {src?.trim() ? (
+        <Image src={src.trim()} alt="" fill className="object-cover" sizes={size === "md" ? "32px" : "24px"} unoptimized />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-xs font-bold text-live-700">
+          {(name || "?").slice(0, 1)}
+        </span>
+      )}
+    </div>
+  );
+  return (
+    <Link href={href} className="inline-flex shrink-0 rounded-full transition-opacity hover:opacity-80 focus:opacity-80">
+      {content}
+    </Link>
+  );
+}
+
 function CommentItem({
   comment,
   isOwn,
+  currentUserId,
+  returnFrom,
   posting,
   replyTo,
   setReplyTo,
@@ -463,6 +506,8 @@ function CommentItem({
 }: {
   comment: CommentWithAuthor;
   isOwn: boolean;
+  currentUserId: string;
+  returnFrom?: string;
   posting: boolean;
   replyTo: string | null;
   setReplyTo: (id: string | null) => void;
@@ -483,6 +528,9 @@ function CommentItem({
 }) {
   const isEditing = editId === comment.id;
   const isReplying = replyTo === comment.id;
+  const authorLink = isOwn
+    ? (returnFrom ? `/my?from=${returnFrom}` : "/my")
+    : `/friends/${comment.user_id}${returnFrom ? `?from=${returnFrom}` : ""}`;
 
   const startEdit = () => {
     setEditId(comment.id);
@@ -496,7 +544,17 @@ function CommentItem({
 
   return (
     <div className={isReply ? "text-sm" : ""}>
-      <p className="font-bold text-gray-900">{comment.display_name}</p>
+      <div className="flex items-center gap-2">
+        <CommentAvatar
+          src={comment.avatar_url}
+          name={comment.display_name}
+          href={authorLink}
+          size={isReply ? "sm" : "md"}
+        />
+        <Link href={authorLink} className="font-bold text-gray-900 hover:underline">
+          {comment.display_name}
+        </Link>
+      </div>
       <p className="mt-0.5 text-xs text-gray-500">
         {new Date(comment.created_at).toLocaleString("ja-JP", {
           year: "numeric",

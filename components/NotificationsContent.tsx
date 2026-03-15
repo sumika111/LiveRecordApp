@@ -2,10 +2,26 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
-type UserItem = { id: string; display_name: string };
+type UserItem = { id: string; display_name: string; avatar_url: string | null };
 type LikeCard = { attendance_id: string; title: string; count: number; lastAt: string; users: UserItem[] };
-type CommentCard = { attendance_id: string; title: string; user_id: string; display_name: string; lastAt: string };
+type CommentCard = { attendance_id: string; title: string; user_id: string; display_name: string; avatar_url: string | null; lastAt: string };
+
+function Avatar({ src, name, size = "md" }: { src: string | null; name: string; size?: "sm" | "md" }) {
+  const sizeClass = size === "md" ? "h-8 w-8" : "h-6 w-6";
+  return (
+    <div className={`relative shrink-0 overflow-hidden rounded-full bg-live-100 ${sizeClass}`}>
+      {src?.trim() ? (
+        <Image src={src.trim()} alt="" fill className="object-cover" sizes={size === "md" ? "32px" : "24px"} unoptimized />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-xs font-bold text-live-700">
+          {(name || "?").slice(0, 1)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 const HIGHLIGHT_DURATION_MS = 4000;
 
@@ -85,7 +101,7 @@ export function NotificationsContent() {
 
   if (loading) return <p className="text-sm text-gray-500">読み込み中...</p>;
 
-  const summary = (users: UserItem[], count: number, suffix: string) => {
+  const summaryText = (users: UserItem[], count: number, suffix: string) => {
     if (users.length === 0) return count > 0 ? `${count}人${suffix}` : "";
     const first = users[0].display_name;
     if (users.length === 1) return `${first}さん${suffix}`;
@@ -141,8 +157,9 @@ export function NotificationsContent() {
             <ul className="space-y-2">
               {likes.map((card) => {
                 const isExpanded = expandedLikeId === card.attendance_id;
-                const text = summary(card.users, card.count, "がいいねしました");
+                const text = summaryText(card.users, card.count, "がいいねしました");
                 const isNew = newLikeIds.has(card.attendance_id);
+                const firstUser = card.users[0];
                 return (
                   <li
                     key={card.attendance_id}
@@ -151,11 +168,16 @@ export function NotificationsContent() {
                     }`}
                   >
                     <Link
-                      href={`/my/record/${card.attendance_id}`}
+                      href={`/my/record/${card.attendance_id}?from=notifications`}
                       className="block p-3 hover:bg-live-50/50 transition-colors"
                     >
                       <p className="font-bold text-gray-900">{card.title}</p>
-                      <p className="text-sm text-gray-600 mt-0.5">{text}</p>
+                      {text && (
+                        <div className="mt-1.5 flex items-center gap-2 text-sm text-gray-600">
+                          {firstUser && <Avatar src={firstUser.avatar_url} name={firstUser.display_name} size="md" />}
+                          <span>{text}</span>
+                        </div>
+                      )}
                     </Link>
                     {card.users.length > 0 && (
                       <>
@@ -171,9 +193,12 @@ export function NotificationsContent() {
                         </button>
                         {isExpanded && (
                           <div className="max-h-40 overflow-y-auto border-t border-live-100 bg-white px-3 py-2">
-                            <ul className="space-y-1 text-sm text-gray-700">
+                            <ul className="space-y-2 text-sm text-gray-700">
                               {card.users.map((u) => (
-                                <li key={u.id}>{u.display_name}</li>
+                                <li key={u.id} className="flex items-center gap-2">
+                                  <Avatar src={u.avatar_url} name={u.display_name} size={6} />
+                                  <span>{u.display_name}</span>
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -204,11 +229,14 @@ export function NotificationsContent() {
                     }`}
                   >
                     <Link
-                      href={`/my/record/${card.attendance_id}`}
+                      href={`/my/record/${card.attendance_id}?from=notifications`}
                       className="block p-3 hover:bg-live-50/50 transition-colors"
                     >
                       <p className="font-bold text-gray-900">{card.title}</p>
-                      <p className="text-sm text-gray-600 mt-0.5">{card.display_name}さんがコメントしました</p>
+                      <div className="mt-1.5 flex items-center gap-2 text-sm text-gray-600">
+                        <Avatar src={card.avatar_url} name={card.display_name} size="md" />
+                        <span>{card.display_name}さんがコメントしました</span>
+                      </div>
                     </Link>
                   </li>
                 );

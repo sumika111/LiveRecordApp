@@ -7,13 +7,37 @@ import { LikeButton } from "@/components/LikeButton";
 import { UserDisplay } from "@/components/UserDisplay";
 import { AttendanceComments } from "@/components/AttendanceComments";
 
-type Params = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string }> };
 
-export default async function MyRecordDetailPage({ params }: Params) {
+function getBackLink(from: string | undefined, isMine: boolean, recordId: string): { href: string; label: string } {
+  switch (from) {
+    case "timeline":
+      return { href: "/timeline", label: "TLに戻る" };
+    case "my":
+      return { href: "/my", label: "マイ記録に戻る" };
+    case "my-list":
+      return { href: "/my/list", label: "一覧に戻る" };
+    case "notifications":
+      return { href: "/notifications", label: "通知に戻る" };
+    case "admin":
+      return { href: "/admin", label: "管理者画面に戻る" };
+    case "edit":
+      return { href: `/my/edit?id=${recordId}`, label: "編集に戻る" };
+    case "home":
+      return { href: "/", label: "ホームに戻る" };
+    case "friends":
+      return { href: "/friends", label: "友達に戻る" };
+    default:
+      return isMine ? { href: "/my", label: "マイ記録に戻る" } : { href: "/timeline", label: "タイムラインに戻る" };
+  }
+}
+
+export default async function MyRecordDetailPage({ params, searchParams }: Props) {
   const user = await getOptionalUser();
   if (!user) redirect("/login");
 
   const { id: attendanceId } = await params;
+  const { from } = await searchParams;
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("attendances")
@@ -59,6 +83,7 @@ export default async function MyRecordDetailPage({ params }: Params) {
   };
   const v = e.venues;
   const venueLabel = v ? `${v.name}（${v.prefecture}${v.city ? ` ${v.city}` : ""}）` : "—";
+  const back = getBackLink(from, isMine, row.id);
 
   return (
     <div className="space-y-6">
@@ -114,6 +139,7 @@ export default async function MyRecordDetailPage({ params }: Params) {
           attendanceId={row.id}
           currentUserId={user.id}
           defaultOpen
+          returnFrom={from}
         />
       </section>
 
@@ -123,14 +149,14 @@ export default async function MyRecordDetailPage({ params }: Params) {
             <Link href={`/my/edit?id=${row.id}`} className="btn-primary">
               編集する
             </Link>
-            <Link href="/my" className="btn-secondary">
-              ← マイ記録へ戻る
+            <Link href={back.href} className="btn-secondary">
+              ← {back.label}
             </Link>
           </>
         ) : (
           <>
-            <Link href="/timeline" className="btn-primary">
-              タイムラインへ戻る
+            <Link href={back.href} className="btn-primary">
+              ← {back.label}
             </Link>
             <Link href="/friends" className="btn-secondary">
               友達一覧

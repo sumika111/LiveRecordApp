@@ -129,7 +129,7 @@ export function HomeAuthenticated({
               : "—";
             return (
               <motion.li key={row.id} variants={item}>
-                <Link href={`/my/record/${row.id}`} className="block">
+                <Link href={`/my/record/${row.id}?from=home`} className="block">
                   <motion.div
                     className="card py-3"
                     whileHover={{ x: 4, transition: { duration: 0.2 } }}

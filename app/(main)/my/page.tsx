@@ -24,12 +24,12 @@ const RECENT_LIMIT = 10;
 export default async function MyRecordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{ order?: string; from?: string }>;
 }) {
   const user = await getOptionalUser();
   if (!user) redirect("/login");
 
-  const { order } = await searchParams;
+  const { order, from } = await searchParams;
   const isAsc = order === "asc";
 
   const supabase = await createClient();
@@ -50,6 +50,7 @@ export default async function MyRecordPage({
   const totalCount = sortedList.length;
   const hasMore = totalCount > RECENT_LIMIT;
   const orderParam = isAsc ? "asc" : "desc";
+  const fromParam = from ? `&from=${encodeURIComponent(from)}` : "";
 
   return (
     <>
@@ -100,13 +101,13 @@ export default async function MyRecordPage({
           <div className="mt-2 flex items-center gap-2">
             <span className="text-sm text-gray-500">日付順:</span>
             <Link
-              href="/my?order=desc"
+              href={`/my?order=desc${fromParam}`}
               className={`rounded-button px-3 py-1 text-sm font-bold transition-colors ${!isAsc ? "bg-live-100 text-live-800" : "text-gray-600 hover:bg-live-50"}`}
             >
               新しい順
             </Link>
             <Link
-              href="/my?order=asc"
+              href={`/my?order=asc${fromParam}`}
               className={`rounded-button px-3 py-1 text-sm font-bold transition-colors ${isAsc ? "bg-live-100 text-live-800" : "text-gray-600 hover:bg-live-50"}`}
             >
               古い順
@@ -155,7 +156,7 @@ export default async function MyRecordPage({
                     </Link>
                   </div>
                   <Link
-                    href={`/my/record/${row.id}`}
+                    href={`/my/record/${row.id}?from=my`}
                     className="absolute inset-0 z-20"
                     aria-label="詳細を見る"
                   />
@@ -185,9 +186,15 @@ export default async function MyRecordPage({
             全件一覧
           </Link>
         )}
-        <Link href="/" className="text-sm font-bold text-live-600 hover:underline">
-          ← トップへ戻る
-        </Link>
+        {from === "timeline" ? (
+          <Link href="/timeline" className="text-sm font-bold text-live-600 hover:underline">
+            ← TLに戻る
+          </Link>
+        ) : (
+          <Link href="/" className="text-sm font-bold text-live-600 hover:underline">
+            ← トップへ戻る
+          </Link>
+        )}
       </div>
     </>
   );

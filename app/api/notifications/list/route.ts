@@ -40,19 +40,29 @@ export async function GET() {
   const userIds = new Set<string>();
   likesFromOthers.forEach((r) => userIds.add(r.user_id));
   commentsFromOthers.forEach((r) => userIds.add(r.user_id));
-  const { data: profiles } = await admin.from("profiles").select("id, display_name").in("id", [...userIds]);
+  const { data: profiles } = await admin.from("profiles").select("id, display_name, avatar_url").in("id", [...userIds]);
   const nameMap = new Map((profiles ?? []).map((p: { id: string; display_name: string | null }) => [p.id, toPublicDisplayName(p.display_name)]));
+  const avatarMap = new Map((profiles ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url ?? null]));
 
-  type Agg = { attendance_id: string; count: number; userIds: Set<string>; lastAt: string };
+  type Agg = { attendance_id: string; count: number; userIds: Set<string>; lastAt: string; lastLikerUserId: string };
   const likeAgg = new Map<string, Agg>();
   likesFromOthers.forEach((r) => {
     const cur = likeAgg.get(r.attendance_id);
     if (!cur) {
-      likeAgg.set(r.attendance_id, { attendance_id: r.attendance_id, count: 1, userIds: new Set([r.user_id]), lastAt: r.created_at });
+      likeAgg.set(r.attendance_id, {
+        attendance_id: r.attendance_id,
+        count: 1,
+        userIds: new Set([r.user_id]),
+        lastAt: r.created_at,
+        lastLikerUserId: r.user_id,
+      });
     } else {
       cur.count += 1;
       cur.userIds.add(r.user_id);
-      if (r.created_at > cur.lastAt) cur.lastAt = r.created_at;
+      if (r.created_at > cur.lastAt) {
+        cur.lastAt = r.created_at;
+        cur.lastLikerUserId = r.user_id;
+      }
     }
   });
 
@@ -68,13 +78,21 @@ export async function GET() {
 
   const likes = Array.from(likeAgg.values())
     .sort((a, b) => (b.lastAt > a.lastAt ? 1 : -1))
-    .map((a) => ({
-      attendance_id: a.attendance_id,
-      title: titleByAttendance.get(a.attendance_id) ?? "—",
-      count: a.count,
-      lastAt: a.lastAt,
-      users: [...a.userIds].map((id) => ({ id, display_name: nameMap.get(id) ?? "匿名" })),
-    }));
+    .map((a) => {
+      const userIds = [...a.userIds];
+      const latestFirst = [a.lastLikerUserId, ...userIds.filter((id) => id !== a.lastLikerUserId)];
+      return {
+        attendance_id: a.attendance_id,
+        title: titleByAttendance.get(a.attendance_id) ?? "—",
+        count: a.count,
+        lastAt: a.lastAt,
+        users: latestFirst.map((id) => ({
+          id,
+          display_name: nameMap.get(id) ?? "匿名",
+          avatar_url: avatarMap.get(id) ?? null,
+        })),
+      };
+    });
 
   const comments = Array.from(commentByUser.values())
     .sort((a, b) => (b.lastAt > a.lastAt ? 1 : -1))
@@ -83,6 +101,7 @@ export async function GET() {
       title: titleByAttendance.get(a.attendance_id) ?? "—",
       user_id: a.user_id,
       display_name: nameMap.get(a.user_id) ?? "匿名",
+      avatar_url: avatarMap.get(a.user_id) ?? null,
       lastAt: a.lastAt,
     }));
 

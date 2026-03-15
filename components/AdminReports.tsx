@@ -128,7 +128,7 @@ export function AdminReports({ readAt }: { readAt: string | null }) {
                     {r.comment_id && r.attendance_id && (
                       <p className="mt-2">
                         <a
-                          href={`/my/record/${r.attendance_id}#comment-${r.comment_id}`}
+                          href={`/my/record/${r.attendance_id}?from=admin#comment-${r.comment_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm font-bold text-live-600 hover:underline"

@@ -77,7 +77,7 @@ export function MyListItems({ items }: { items: MyListItem[] }) {
               </Link>
             </div>
             <Link
-              href={`/my/record/${row.id}`}
+              href={`/my/record/${row.id}?from=my-list`}
               className="absolute inset-0 z-20"
               aria-label="詳細を見る"
             />

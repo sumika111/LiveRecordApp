@@ -7,9 +7,10 @@ import { ReportUserButtonWithPersistence } from "@/components/ReportUserButtonWi
 import { ArtistTagLink } from "@/components/ArtistTagLink";
 import { getUserStats, getArtistRanking } from "@/lib/getUserStats";
 
-type Params = { params: Promise<{ userId: string }> };
+type Props = { params: Promise<{ userId: string }>; searchParams: Promise<{ from?: string }> };
 
-export default async function FriendDetailPage({ params }: Params) {
+export default async function FriendDetailPage({ params, searchParams }: Props) {
+  const { from } = await searchParams;
   const currentUser = await getOptionalUser();
   if (!currentUser) redirect("/login");
 
@@ -46,14 +47,17 @@ export default async function FriendDetailPage({ params }: Params) {
     ? raw.split("||").map((s: string) => s.trim().replace(/^#+/, "")).filter((s: string) => s.length > 0)
     : raw.split(/\s+#/).map((s: string) => s.trim().replace(/^#+/, "")).filter((s: string) => s.length > 0);
 
+  const backHref = from === "timeline" ? "/timeline" : "/friends";
+  const backLabel = from === "timeline" ? "TLに戻る" : "友達一覧";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Link
-          href="/friends"
+          href={backHref}
           className="text-sm font-bold text-live-600 hover:text-live-700 hover:underline"
         >
-          ← 友達一覧
+          ← {backLabel}
         </Link>
       </div>
 
