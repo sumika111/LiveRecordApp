@@ -13,7 +13,8 @@ export async function GET() {
     admin.from("profiles").select("notification_read_at").eq("id", user.id).single(),
     admin.from("attendances").select("id, events(title)").eq("user_id", user.id),
   ]);
-  const myList = (myAttendances ?? []) as { id: string; events: { title: string } | null }[];
+  type Row = { id: string; events: { title: string } | null };
+  const myList = ((myAttendances ?? []) as unknown) as Row[];
   const attendanceIds = myList.map((r) => r.id);
   const titleByAttendance = new Map(myList.map((r) => [r.id, r.events?.title ?? "—"]));
   const readAt = (profile as { notification_read_at: string | null } | null)?.notification_read_at ?? "1970-01-01T00:00:00Z";

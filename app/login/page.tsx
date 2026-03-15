@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,7 +9,7 @@ import { motion } from "framer-motion";
 
 type Announcement = { id: string; body: string; created_at: string };
 
-export default function LoginPage() {
+function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,21 +25,6 @@ export default function LoginPage() {
       .then((data) => setAnnouncements(Array.isArray(data) ? data : []))
       .catch(() => setAnnouncements([]));
   }, []);
-
-  if (!isSupabaseConfigured()) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-8">
-        <div className="w-full max-w-sm space-y-4 text-center">
-          <h1 className="text-xl font-bold">ログイン</h1>
-          <p className="text-sm text-gray-600">
-            Supabase の環境変数（<code className="bg-gray-100 px-1">.env.local</code>）が設定されていません。<br />
-            README の手順に従って設定してください。
-          </p>
-          <Link href="/" className="inline-block text-sm text-blue-600 hover:underline">トップへ戻る</Link>
-        </div>
-      </main>
-    );
-  }
 
   const supabase = createClient();
 
@@ -231,5 +217,27 @@ export default function LoginPage() {
         </motion.p>
       </motion.div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  if (!isSupabaseConfigured()) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8">
+        <div className="w-full max-w-sm space-y-4 text-center">
+          <h1 className="text-xl font-bold">ログイン</h1>
+          <p className="text-sm text-gray-600">
+            Supabase の環境変数（<code className="bg-gray-100 px-1">.env.local</code>）が設定されていません。<br />
+            README の手順に従って設定してください。
+          </p>
+          <Link href="/" className="inline-block text-sm text-blue-600 hover:underline">トップへ戻る</Link>
+        </div>
+      </main>
+    );
+  }
+  return (
+    <Suspense fallback={<main className="flex min-h-screen flex-col items-center justify-center bg-surface p-8"><div className="text-sm text-gray-500">読み込み中...</div></main>}>
+      <LoginContent />
+    </Suspense>
   );
 }
